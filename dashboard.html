@@ -857,9 +857,24 @@
 
     await window.CHART_READY; // garante que Chart.js carregou
 
-    const { data: rows, error: rowsErr } = await supabaseClient
-      .from('contas')
-      .select('id, row, created_at');
+    // busca em lotes de 1000 — o Supabase limita cada consulta e, sem paginar,
+    // bases grandes (>1000 linhas) ficam cortadas silenciosamente
+    let rows = [];
+    let rowsErr = null;
+    {
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabaseClient
+          .from('contas')
+          .select('id, row, created_at')
+          .range(from, from + PAGE - 1);
+        if (error) { rowsErr = error; break; }
+        rows = rows.concat(data || []);
+        if (!data || data.length < PAGE) break;
+        from += PAGE;
+      }
+    }
 
     if (rowsErr) {
       document.getElementById('loadingTitle').textContent = 'Não foi possível carregar os dados';
@@ -919,6 +934,7 @@
         // troca de vendedor não deve misturar seleção de roteiro entre carteiras diferentes
         routeSelected.clear();
         limparRotaCalculada();
+        refreshChipCounts();
         applyFilters();
       });
     }
@@ -1192,7 +1208,10 @@
     });
   }
 
-  function countTipo(t){ return RAW.filter(r=>r.Tipo===t).length; }
+  function scopedRaw(){
+    return selectedVendedor ? RAW.filter(r => r.Responsavel === selectedVendedor) : RAW;
+  }
+  function countTipo(t){ return scopedRaw().filter(r=>r.Tipo===t).length; }
 
   function buildChips(containerId, items, activeSet, kind){
     const el = document.getElementById(containerId);
@@ -1201,7 +1220,7 @@
       const chip = document.createElement('button');
       chip.type='button';
       chip.className='chip';
-      chip.textContent = item + ' (' + (kind==='status'? RAW.filter(r=>r.Cliente===item).length : countTipo(item)) + ')';
+      chip.textContent = item + ' (' + (kind==='status'? scopedRaw().filter(r=>r.Cliente===item).length : countTipo(item)) + ')';
       chip.dataset.active = activeSet.has(item) ? '1':'0';
       if(kind==='status') chip.dataset.status = item;
       if(kind==='tipo') chip.dataset.tipo = item;
@@ -1211,6 +1230,17 @@
         applyFilters();
       });
       el.appendChild(chip);
+    });
+  }
+
+  function refreshChipCounts(){
+    document.querySelectorAll('#chipsStatus .chip').forEach(ch=>{
+      const item = ch.dataset.status;
+      ch.textContent = item + ' (' + scopedRaw().filter(r=>r.Cliente===item).length + ')';
+    });
+    document.querySelectorAll('#chipsTipo .chip').forEach(ch=>{
+      const item = ch.dataset.tipo;
+      ch.textContent = item + ' (' + countTipo(item) + ')';
     });
   }
 

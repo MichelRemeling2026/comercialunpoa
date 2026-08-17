@@ -132,14 +132,17 @@
   }
 
   // ---- conta quantas contas cada vendedor já tem hoje ----
-  const { data: contagens } = await supabaseClient
-    .from('contas')
-    .select('responsavel');
-
+  // usa count exato (head:true) por vendedor, em vez de baixar as linhas —
+  // mais rápido e sem o limite de 1000 linhas por consulta do Supabase
   const totalPorResponsavel = {};
-  (contagens || []).forEach(r=>{
-    totalPorResponsavel[r.responsavel] = (totalPorResponsavel[r.responsavel] || 0) + 1;
-  });
+  for (const v of vendedores) {
+    if (!v.responsavel_nome) continue;
+    const { count } = await supabaseClient
+      .from('contas')
+      .select('id', { count: 'exact', head: true })
+      .eq('responsavel', v.responsavel_nome);
+    totalPorResponsavel[v.responsavel_nome] = count || 0;
+  }
 
   // ---- monta um card por vendedor ----
   const listEl = document.getElementById('vendorList');
