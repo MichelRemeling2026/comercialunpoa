@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Livro-Razão · Painel Comercial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<style>
+  :root{
+    --ink:#12161c;
+    --ink-2:#171c23;
+    --paper:#1c232b;
+    --paper-raised:#232b34;
+    --line:#2e3841;
+    --line-soft:#242c34;
+    --text:#eae6da;
+    --text-dim:#9aa5b1;
+    --text-faint:#5f6b78;
+    --gold:#c9a227;
+    --gold-dim:#8c7222;
+    --green:#4c9a6a;
+    --green-dim:#33513c;
+    --red:#c1543d;
+    --red-dim:#4a2c25;
+    --blue:#5b7fa6;
+    --blue-dim:#2b3b4c;
+    --radius:10px;
+    --radius-sm:6px;
+    --serif:'Source Serif 4', Georgia, serif;
+    --sans:'Inter', -apple-system, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    background-image:
+      linear-gradient(var(--ink) 0%, var(--ink) 100%);
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  ::selection{background:var(--gold-dim); color:var(--text);}
+  a{color:var(--blue);}
+
+  /* ---------- Header ---------- */
+  header.top{
+    padding:28px 32px 20px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .brand{display:flex; flex-direction:column; gap:4px;}
+  .brand .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--gold);
+  }
+  .brand h1{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:28px;
+    margin:0;
+    letter-spacing:-.01em;
+  }
+  .brand .sub{color:var(--text-dim); font-size:13.5px;}
+  .top-actions{display:flex; align-items:center; gap:10px;}
+  .btn{
+    font-family:var(--sans);
+    font-size:13px;
+    font-weight:600;
+    padding:9px 16px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--text);
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--text-faint); background:var(--paper-raised);}
+  .btn:focus-visible, input:focus-visible, select:focus-visible, .chip:focus-visible, th button:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+  .btn.gold{background:var(--gold); color:#1a1406; border-color:var(--gold);}
+  .btn.gold:hover{background:#dab63a;}
+  .btn.ghost{background:transparent;}
+  .file-input{display:none;}
+
+  main{max-width:1360px; margin:0 auto; padding:0 32px 60px;}
+
+  /* ---------- Upload / empty state ---------- */
+  #uploadScreen{
+    margin-top:60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:22px;
+  }
+  .drop{
+    width:100%;
+    max-width:620px;
+    border:1.5px dashed var(--line);
+    border-radius:var(--radius);
+    padding:48px 36px;
+    background:
+      repeating-linear-gradient(var(--paper), var(--paper) 27px, var(--line-soft) 28px);
+    transition:border-color .15s, background .15s;
+    cursor:pointer;
+  }
+  .drop.drag{border-color:var(--gold); background-color:var(--paper-raised);}
+  .drop .icon{
+    width:44px;height:44px;margin:0 auto 16px;
+    border:1.5px solid var(--gold);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--gold);
+    font-family:var(--serif);
+    font-size:20px;
+  }
+  .drop h2{font-family:var(--serif); font-weight:600; font-size:20px; margin:0 0 6px;}
+  .drop p{color:var(--text-dim); font-size:13.5px; margin:0 0 18px; line-height:1.5;}
+  .drop .cols{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:16px;
+  }
+  .drop .cols span{border:1px solid var(--line); border-radius:4px; padding:2px 7px;}
+  .privacy-note{
+    font-size:12px; color:var(--text-faint); max-width:480px; line-height:1.6;
+  }
+  .privacy-note b{color:var(--text-dim);}
+
+  /* ---------- Dashboard ---------- */
+  #dashboard{display:none;}
+  #dashboard.active{display:block;}
+
+  .ledger-strip{
+    display:grid;
+    grid-template-columns:repeat(8, 1fr);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--paper);
+    margin:26px 0 22px;
+    overflow:hidden;
+  }
+  .kpi{
+    padding:16px 16px;
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .kpi:last-child{border-right:none;}
+  .kpi .label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--text-faint);
+  }
+  .kpi .value{
+    font-family:var(--mono); font-size:21px; font-weight:600;
+    color:var(--text); font-variant-numeric:tabular-nums;
+  }
+  .kpi.alert .value{color:var(--red);}
+  .kpi.money .value{color:var(--gold);}
+  .kpi.pos .value{color:var(--green);}
+
+  @media (max-width: 1100px){
+    .ledger-strip{grid-template-columns:repeat(4,1fr);}
+    .kpi:nth-child(4){border-right:none;}
+  }
+  @media (max-width: 620px){
+    .ledger-strip{grid-template-columns:repeat(2,1fr);}
+    .kpi:nth-child(2n){border-right:none;}
+  }
+
+  /* ---------- Filters ---------- */
+  .filters{
+    display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;
+    padding:14px 16px; border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--ink-2); margin-bottom:22px;
+  }
+  .filter-group{display:flex; flex-direction:column; gap:5px;}
+  .filter-group .fl{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    font-family:var(--sans); font-size:12.5px; font-weight:600;
+    padding:6px 12px; border-radius:20px; border:1px solid var(--line);
+    background:var(--paper); color:var(--text-dim); cursor:pointer; user-select:none;
+    transition:all .12s;
+  }
+  .chip[data-active="1"]{color:var(--ink); }
+  .chip[data-status="Cliente"][data-active="1"]{background:var(--green); border-color:var(--green);}
+  .chip[data-status="Prospect"][data-active="1"]{background:var(--blue); border-color:var(--blue);}
+  .chip[data-status="Ex-Cliente"][data-active="1"]{background:var(--red); border-color:var(--red);}
+  .chip[data-tipo][data-active="1"]{background:var(--gold); border-color:var(--gold);}
+  select, input[type=text], input[type=search], input[type=number]{
+    font-family:var(--sans); font-size:13px; color:var(--text);
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:7px 10px; width:100%;
+  }
+  input[type=range]{accent-color:var(--gold);}
+  .search-wrap{flex:1; min-width:200px;}
+  .search-wrap input{width:100%;}
+  .range-wrap{display:flex; align-items:center; gap:8px;}
+  .range-wrap output{font-family:var(--mono); font-size:12px; color:var(--gold); min-width:70px;}
+  .filters .spacer{flex:1;}
+  .clear-link{font-size:12px; color:var(--text-faint); background:none; border:none; cursor:pointer; text-decoration:underline; text-underline-offset:3px;}
+  .clear-link:hover{color:var(--text);}
+
+  /* ---------- Sidebar layout ---------- */
+  .layout{display:grid; grid-template-columns:250px 1fr; gap:22px; align-items:start; margin-top:26px;}
+  .sidebar{position:sticky; top:16px; display:flex; flex-direction:column; gap:12px; max-height:calc(100vh - 32px); overflow-y:auto; padding-bottom:8px;}
+  .side-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--ink-2); padding:12px 13px;}
+  .side-card .fl{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); display:block; margin-bottom:8px;}
+  .btn.full{width:100%; text-align:center;}
+  .btn.clear-btn{background:transparent; border:1px solid var(--red-dim); color:var(--red);}
+  .btn.clear-btn:hover{background:var(--red-dim); border-color:var(--red);}
+  .minmax-row{display:flex; align-items:center; gap:8px;}
+  .minmax-row input{width:100%;}
+  .minmax-row span{color:var(--text-faint); font-size:12px;}
+  .prod-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 0;}
+  .prod-row:not(:last-child){border-bottom:1px solid var(--line-soft);}
+  .prod-name{font-size:12px; color:var(--text-dim);}
+  .prod-toggles{display:flex; gap:5px;}
+  .prod-pill{
+    font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.02em;
+    padding:3px 8px; border-radius:4px; border:1px solid var(--line);
+    background:var(--paper); color:var(--text-faint); cursor:pointer; transition:all .12s;
+  }
+  .prod-pill[data-active="1"][data-val="Sim"]{background:var(--green-dim); color:var(--green); border-color:var(--green);}
+  .prod-pill[data-active="1"][data-val="Não"]{background:var(--red-dim); color:var(--red); border-color:var(--red);}
+  .content{min-width:0;}
+  @media (max-width: 900px){
+    .layout{grid-template-columns:1fr;}
+    .sidebar{position:static; max-height:none;}
+  }
+
+  /* ---------- Section headings ---------- */
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between; margin:34px 0 12px;
+  }
+  .section-head h3{
+    font-family:var(--serif); font-weight:600; font-size:16.5px; margin:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  .section-head h3 .n{color:var(--gold); font-family:var(--mono); font-size:12px;}
+  button.n.link-count{
+    background:none; border:none; cursor:pointer; padding:0; font:inherit;
+    color:var(--gold); font-family:var(--mono); text-transform:none; letter-spacing:normal;
+    text-decoration:underline; text-underline-offset:3px;
+  }
+  button.n.link-count:hover{color:#dab63a;}
+  button.n.link-count:disabled{cursor:default; text-decoration:none; opacity:.7;}
+  .section-head p{margin:2px 0 0; font-size:12px; color:var(--text-faint);}
+
+  .grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:18px;}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+  @media (max-width:980px){ .grid-2, .grid-3{grid-template-columns:1fr;} }
+
+  .card{
+    border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+    padding:18px;
+  }
+  .card h4{
+    font-family:var(--sans); font-size:12.5px; font-weight:700; letter-spacing:.02em;
+    margin:0 0 14px; color:var(--text-dim); text-transform:uppercase;
+  }
+  .chart-wrap{position:relative; height:260px;}
+  .chart-wrap.tall{height:320px;}
+
+  .stat-block{display:flex; align-items:baseline; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+  .stat-block .big{font-family:var(--mono); font-size:30px; font-weight:700; color:var(--gold); line-height:1;}
+  .stat-block .desc{font-size:12px; color:var(--text-dim); line-height:1.4; max-width:200px;}
+  .pct-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:11px; font-weight:700; white-space:nowrap;
+    padding:3px 9px; border-radius:4px; background:var(--gold-dim); color:var(--gold);
+    min-width:44px; text-align:center;
+  }
+  button.pct-badge{appearance:none; border:none; cursor:pointer; font:inherit; transition:filter .12s;}
+  button.pct-badge:hover{filter:brightness(1.2);}
+
+  /* ---------- Calendar ---------- */
+  .cal-controls{margin-bottom:12px;}
+  .cal-controls select{width:auto; min-width:160px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; max-width:360px;}
+  .cal-dow{font-family:var(--mono); font-size:10px; text-transform:uppercase; color:var(--text-faint); text-align:center; padding-bottom:4px;}
+  .cal-day{
+    aspect-ratio:1; border-radius:5px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:11.5px; color:var(--text-dim); background:var(--paper-raised);
+    border:1px solid var(--line-soft);
+  }
+  .cal-day.empty{background:transparent; border-color:transparent;}
+  .cal-day.weekend{opacity:.5;}
+  .cal-day.active-1{background:var(--green-dim); color:var(--text); border-color:var(--green-dim);}
+  .cal-day.active-2{background:#3a6b4c; color:var(--text); border-color:#3a6b4c;}
+  .cal-day.active-3{background:var(--green); color:#0e1a13; border-color:var(--green); font-weight:700;}
+  button.cal-day{appearance:none; font:inherit; cursor:pointer; padding:0; transition:box-shadow .12s;}
+  button.cal-day:hover{box-shadow:0 0 0 1.5px var(--gold) inset;}
+  .cal-day.selected{box-shadow:0 0 0 2px var(--gold) inset;}
+
+  /* ---------- Stamp badges ---------- */
+  .stamp{
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; padding:3px 9px; border-radius:3px;
+    border:1.5px dashed currentColor;
+    transform:rotate(-1.2deg);
+    white-space:nowrap;
+  }
+  .stamp.Cliente{color:var(--green);}
+  .stamp.Prospect{color:var(--blue);}
+  .stamp.Ex-Cliente{color:var(--red); transform:rotate(1.2deg);}
+
+  /* ---------- Alert list ---------- */
+  .alert-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column;}
+  .alert-list li{
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .alert-list li:last-child{border-bottom:none;}
+  .alert-list .name{flex:1; min-width:0;}
+  .alert-list .name a{color:var(--text); text-decoration:none; font-size:13px; font-weight:600; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .alert-list .name a:hover{color:var(--gold);}
+  .alert-list .meta{font-size:11.5px; color:var(--text-faint); font-family:var(--mono);}
+  .alert-list .days{
+    font-family:var(--mono); font-size:12px; font-weight:600; color:var(--red);
+    min-width:64px; text-align:right;
+  }
+  .empty-note{color:var(--text-faint); font-size:13px; padding:14px 0;}
+
+  /* ---------- Table ---------- */
+  .table-toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
+  .table-wrap{
+    border:1px solid var(--line); border-radius:var(--radius); overflow:auto; max-height:560px; background:var(--paper);
+  }
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    position:sticky; top:0; background:var(--paper-raised); text-align:left;
+    padding:10px 12px; border-bottom:1px solid var(--line); z-index:1;
+  }
+  thead th button{
+    background:none; border:none; color:var(--text-dim); font-family:var(--sans);
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;
+  }
+  thead th button:hover{color:var(--text);}
+  tbody td{padding:9px 12px; border-bottom:1px solid var(--line-soft); color:var(--text-dim); font-size:12.8px;}
+  tbody tr:hover{background:var(--paper-raised);}
+  tbody td.num{font-family:var(--mono); text-align:right; color:var(--text);}
+  tbody td.name a{color:var(--text); text-decoration:none; font-weight:600;}
+  tbody td.name a:hover{color:var(--gold); text-decoration:underline;}
+  .row-count{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
+
+  footer.foot{margin-top:40px; padding-top:16px; border-top:1px solid var(--line); color:var(--text-faint); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="eyebrow">Painel Comercial · Livro de Contas</span>
+    <h1>Carteira &amp; Prospecção</h1>
+    <span class="sub" id="fileNote">Nenhuma planilha carregada</span>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <div class="top-actions" id="topActionsAlways" style="display:flex;">
+      <a class="btn ghost" id="linkAdmin" href="admin.html" style="text-decoration:none; display:none; align-items:center;">Importar planilha</a>
+      <button class="btn ghost" id="btnLogout">Sair</button>
+    </div>
+    <div class="top-actions" id="topActions" style="display:none;">
+      <button class="btn ghost" id="btnExportXlsx">Exportar Excel filtrado</button>
+      <button class="btn gold" id="btnExport">Exportar CSV filtrado</button>
+    </div>
+  </div>
+
+</header>
+
+<main>
+
+  <section id="uploadScreen">
+    <div class="drop" style="cursor:default;">
+      <div class="icon">⏳</div>
+      <h2 id="loadingTitle">Carregando sua carteira…</h2>
+      <p id="loadingMsg">Buscando os dados mais recentes.</p>
+    </div>
+  </section>
+
+  <section id="dashboard">
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="side-card">
+          <button class="btn full clear-btn" id="btnClear">↺ Limpar filtros</button>
+        </div>
+        <div class="side-card">
+          <span class="fl">Status</span>
+          <div class="chips" id="chipsStatus"></div>
+        </div>
+        <div class="side-card">
+          <span class="fl">Tipo de conta</span>
+          <div class="chips" id="chipsTipo"></div>
+        </div>
+        <div class="side-card">
+          <span class="fl">Cidade</span>
+          <select id="cidadeSelect"><option value="">Todas as cidades</option></select>
+        </div>
+        <div class="side-card">
+          <span class="fl">Sistema atual</span>
+          <select id="sistemaSelect"><option value="">Todos</option></select>
+        </div>
+        <div class="side-card">
+          <span class="fl">Usuários</span>
+          <div class="minmax-row">
+            <input type="number" id="usuariosMin" min="0" placeholder="mín">
+            <span>—</span>
+            <input type="number" id="usuariosMax" min="0" placeholder="máx">
+          </div>
+        </div>
+        <div class="side-card">
+          <span class="fl">Produtos</span>
+          <div id="productFilters"></div>
+        </div>
+        <div class="side-card">
+          <span class="fl">Sem contato há (dias, mín.)</span>
+          <input type="number" id="diasInput" min="0" step="1" placeholder="0">
+        </div>
+        <div class="side-card">
+          <span class="fl">Última demo há (dias, mín.)</span>
+          <input type="number" id="demoDiasInput" min="0" step="1" placeholder="0">
+        </div>
+        <div class="side-card">
+          <span class="fl">Buscar (nome ou sistema)</span>
+          <input type="search" id="searchBox" placeholder="ex.: Contábil Plus…">
+        </div>
+      </aside>
+
+      <div class="content">
+
+        <div class="ledger-strip" id="kpiStrip"></div>
+
+        <div class="section-head">
+          <div>
+            <h3>Visão geral da carteira <span class="n" id="visaoGeralN"></span></h3>
+            <p>Distribuição por status e por tipo de conta, com o valor de contrato em jogo.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Contas por status</h4>
+            <div class="chart-wrap"><canvas id="chartStatus"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Contas por tipo</h4>
+            <div class="chart-wrap"><canvas id="chartTipo"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Concentração &amp; risco</h3>
+            <p>Quanto da receita mensal depende de poucos clientes — e quem são eles.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Curva de concentração (Pareto)</h4>
+            <div class="stat-block">
+              <span class="big" id="paretoStat">—</span>
+              <span class="desc">da receita concentrada nos 10% maiores clientes</span>
+            </div>
+            <div class="chart-wrap tall"><canvas id="chartPareto"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Maior concentração de risco</h4>
+            <ul class="alert-list" id="riskList"></ul>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Oportunidades &amp; adoção</h3>
+            <p>Concorrentes mais frequentes na base de prospecção e adesão de produtos entre clientes ativos.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Top sistemas concorrentes (prospects / ex-clientes)</h4>
+            <div class="chart-wrap tall"><canvas id="chartConcorrentes"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Adesão de produtos entre clientes (% sim)</h4>
+            <div class="chart-wrap tall"><canvas id="chartProdutos"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Cross-sell na base ativa</h3>
+            <p>Clientes que já pagam e ainda não usam nenhum produto adicional — oportunidade sem precisar prospectar.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Clientes por nº de produtos adotados</h4>
+            <div class="chart-wrap"><canvas id="chartCrossSell"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Maior valor sem nenhum produto adicional <button type="button" class="n link-count" id="crossSellN"></button></h4>
+            <ul class="alert-list" id="crossSellList"></ul>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Ritmo de atividade</h3>
+            <p>Última atividade registrada, por mês — mostra se o contato com a carteira está esfriando.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-wrap"><canvas id="chartAtividade"></canvas></div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Calendário de atividade</h3>
+            <p>Dias com pelo menos um registro de atividade, comparados aos dias úteis disponíveis no mês.</p>
+          </div>
+        </div>
+        <div class="card">
+          <h4>Dias trabalhados por mês (últimos 24 meses)</h4>
+          <div class="chart-wrap"><canvas id="chartDiasTrabalhados"></canvas></div>
+        </div>
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="card">
+            <h4>Calendário do mês</h4>
+            <div class="cal-controls">
+              <select id="calMonthSelect"></select>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
+          <div class="card">
+            <h4>Resumo do mês</h4>
+            <div class="stat-block" id="calStat"></div>
+            <p class="empty-note" style="padding-top:0;">Considera "dia trabalhado" qualquer dia em que ao menos uma conta teve sua última atividade registrada nessa data, dentro do filtro atual. Fins de semana aparecem esmaecidos e não entram na contagem de dias úteis.</p>
+          </div>
+        </div>
+        <div class="card" id="dayDetailCard" style="margin-top:18px; display:none;">
+          <h4>Contas com atividade em <span id="dayDetailDate"></span></h4>
+          <ul class="alert-list" id="dayDetailList"></ul>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Tempo com o sistema atual (concorrência)</h3>
+            <p>Há quanto tempo prospects e ex-clientes usam o sistema concorrente — quem está há mais tempo tende a estar mais aberto à troca.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-wrap"><canvas id="chartTempoSistema"></canvas></div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Demonstrações realizadas</h3>
+            <p>Prospects e ex-clientes que já viram uma demonstração e ainda não fecharam — e há quanto tempo isso aconteceu.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Tempo desde a demonstração (sem conversão)</h4>
+            <div class="chart-wrap"><canvas id="chartTempoDemo"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Demos sem fechamento, da mais recente <button type="button" class="n link-count" id="demoListN"></button></h4>
+            <ul class="alert-list" id="demoList"></ul>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Conversão por coorte de cadastro</h3>
+            <p>De quem entrou na base em cada ano, quantos já viraram cliente.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-wrap"><canvas id="chartCoorte"></canvas></div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Contas a priorizar <span class="n" id="alertN"></span></h3>
+            <p>Maior valor de contrato, sem contato recente — candidatas a uma ligação esta semana.</p>
+          </div>
+        </div>
+        <div class="card">
+          <ul class="alert-list" id="alertList"></ul>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Base completa</h3>
+            <p>Clique nos cabeçalhos para ordenar. Use os filtros ao lado para refinar.</p>
+            <div id="specialFilterPill" style="display:none; margin-top:8px; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span class="pct-badge" id="specialFilterLabel" style="cursor:default; background:var(--blue-dim); color:var(--blue);"></span>
+              <button class="clear-link" id="btnClearSpecialFilter">remover</button>
+              <button class="btn gold" id="btnExportFiltered" style="padding:5px 12px; font-size:12px;">Baixar Excel deste filtro</button>
+            </div>
+          </div>
+          <span class="row-count" id="tableCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><button data-sort="Prospect">Conta <span class="arrow"></span></button></th>
+                <th><button data-sort="Tipo">Tipo <span class="arrow"></span></button></th>
+                <th><button data-sort="Cliente">Status <span class="arrow"></span></button></th>
+                <th><button data-sort="Cidade">Cidade <span class="arrow"></span></button></th>
+                <th><button data-sort="Sistema_Atual">Sistema atual <span class="arrow"></span></button></th>
+                <th><button data-sort="Usuarios">Usuários <span class="arrow"></span></button></th>
+                <th><button data-sort="ValorNum">Valor contrato <span class="arrow"></span></button></th>
+                <th><button data-sort="diasSemContato">Dias sem contato <span class="arrow"></span></button></th>
+                <th><button data-sort="diasDesdeDemo">Última demo <span class="arrow"></span></button></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+
+        <footer class="foot">
+          <span id="footSummary"></span>
+          <span id="footUser"></span>
+        </footer>
+
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<script>
+  // ---------- library loader (with CDN fallbacks) ----------
+  function loadScriptCascade(urls){
+    return new Promise((resolve, reject)=>{
+      let i = 0;
+      function tryNext(){
+        if(i >= urls.length){ reject(new Error('Todas as fontes falharam')); return; }
+        const url = urls[i++];
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = ()=> resolve(url);
+        s.onerror = ()=> { s.remove(); tryNext(); };
+        document.head.appendChild(s);
+      }
+      tryNext();
+    });
+  }
+
+  const CHART_SOURCES = [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
+  ];
+
+  window.CHART_READY = loadScriptCascade(CHART_SOURCES)
+    .then(()=>{ window.LIBS_READY = true; })
+    .catch(()=>{
+      const m = document.getElementById('loadingMsg');
+      if (m) m.textContent = 'Não foi possível carregar os componentes do painel. Verifique sua conexão e recarregue a página.';
+    });
+</script>
+
+<script src="config.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let RAW = [];         // parsed rows
+  let VIEW = [];         // filtered rows
+  let charts = {};
+  let sortState = { key:'ValorNum', dir:'desc' };
+  let activeStatus = new Set();
+  let activeTipo = new Set();
+  let minDias = 0;
+  let minDiasDemo = 0;
+  let maxDiasPossible = 365;
+  let selectedCidade = '';
+  let selectedSistema = '';
+  let usuariosMin = null;
+  let usuariosMax = null;
+  let productActive = {};
+  let selectedCalDate = null;
+  let drillFilter = null; // { predicate, label }
+
+  const STATUS_ORDER = ['Cliente','Prospect','Ex-Cliente'];
+  const STATUS_COLOR = { 'Cliente':'#4c9a6a', 'Prospect':'#5b7fa6', 'Ex-Cliente':'#c1543d' };
+  const PRODUCT_COLS = ['Web','Processos','Messenger','Kolossus','Contabilidade_Digital'];
+  const PRODUCT_LABELS = { Web:'Web', Processos:'Processos', Messenger:'MSG', Kolossus:'Kolossus', Contabilidade_Digital:'Cont. Digital' };
+  PRODUCT_COLS.forEach(c=> productActive[c] = new Set());
+  const IGNORE_SISTEMA = new Set(['','NAO INFORMADO','« NAO USA SISTEMA »','« NAO QUIS INFORMAR »','« SISTEMA PROPRIO »','« USA DOMINIO EM OUTRO ESCRITORIO »','DOMINIO SISTEMAS LTDA']);
+  const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const DOW_LABELS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  // ---------- helpers ----------
+  function parseBRDate(s){
+    if(!s || typeof s !== 'string') return null;
+    const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(!m) return null;
+    const d = new Date(+m[3], +m[2]-1, +m[1]);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function parseBRL(s){
+    if(!s || typeof s !== 'string') return 0;
+    const clean = s.replace(/R\$\s*/,'').trim().replace(/\./g,'').replace(',', '.');
+    const n = parseFloat(clean);
+    return isNaN(n) ? 0 : n;
+  }
+  function extractCity(endereco){
+    if(!endereco || typeof endereco !== 'string') return '';
+    const parts = endereco.split(',').map(p=>p.trim()).filter(Boolean);
+    if(parts.length < 2) return '';
+    return parts[parts.length-2];
+  }
+  function fmtBRL(n){
+    return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL', maximumFractionDigits:0});
+  }
+  function fmtInt(n){ return n.toLocaleString('pt-BR'); }
+  function daysBetween(d1, d2){ return Math.round((d1-d2)/86400000); }
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function workingDaysInMonth(year, monthIdx){
+    const days = new Date(year, monthIdx+1, 0).getDate();
+    let count = 0;
+    for(let d=1; d<=days; d++){
+      const dow = new Date(year, monthIdx, d).getDay();
+      if(dow!==0 && dow!==6) count++;
+    }
+    return count;
+  }
+  function buildActivityMap(rows){
+    const byDate = {};
+    rows.forEach(r=>{
+      if(!r.UltimaAtividade) return;
+      const key = dateKey(r.UltimaAtividade);
+      byDate[key] = (byDate[key]||0)+1;
+    });
+    return byDate;
+  }
+
+  // ---------- autenticação + carregamento via Supabase ----------
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{
+    await supabaseClient.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  async function iniciar(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+
+    const { data: perfil, error: perfilErr } = await supabaseClient
+      .from('profiles')
+      .select('role, nome_exibicao, responsavel_nome')
+      .eq('id', session.user.id)
+      .single();
+
+    if (perfilErr || !perfil) {
+      document.getElementById('loadingTitle').textContent = 'Perfil não configurado';
+      document.getElementById('loadingMsg').textContent = 'Fale com o gestor para liberar seu acesso.';
+      return;
+    }
+
+    if (perfil.role === 'gestor') {
+      document.getElementById('linkAdmin').style.display = 'inline-flex';
+    }
+    document.getElementById('footUser').textContent =
+      (perfil.nome_exibicao || session.user.email) + ' · ' + (perfil.role === 'gestor' ? 'Gestor (vê toda a carteira)' : 'Vendedor');
+
+    await window.CHART_READY; // garante que Chart.js carregou
+
+    const { data: rows, error: rowsErr } = await supabaseClient
+      .from('contas')
+      .select('row');
+
+    if (rowsErr) {
+      document.getElementById('loadingTitle').textContent = 'Não foi possível carregar os dados';
+      document.getElementById('loadingMsg').textContent = rowsErr.message;
+      return;
+    }
+
+    const json = (rows || []).map(r => r.row);
+    if (json.length === 0) {
+      document.getElementById('loadingTitle').textContent = 'Nenhuma conta encontrada';
+      document.getElementById('loadingMsg').innerHTML =
+        perfil.role === 'gestor'
+          ? 'Clique em <b>"Importar planilha"</b> no canto superior direito para carregar a base.'
+          : 'Ainda não há contas atribuídas a você nesta base. Fale com o gestor.';
+      return;
+    }
+
+    processData(json, 'Base atualizada');
+  }
+
+  iniciar();
+
+  function processData(rows, fileName){
+    RAW = rows.map(r=>{
+      const cliente = (r.Cliente || '').toString().trim() || 'Prospect';
+      const tipo = (r.Tipo || '').toString().trim() || 'Não informado';
+      const ultimaAtiv = parseBRDate(r.Ultima_Atividade) || parseBRDate(r.Ultima_Visita) || parseBRDate(r.Ultima_Demo) || parseBRDate(r.Data_Cadastro);
+      const valorNum = parseBRL(r.Valor_Contrato);
+      const usuarios = Number(r.Usuarios) || 0;
+      const diasSemContato = ultimaAtiv ? daysBetween(new Date(), ultimaAtiv) : null;
+      const endereco = r.Endereco || '';
+      const dataCadastro = parseBRDate(r.Data_Cadastro);
+      const dataSistemaAtual = parseBRDate(r.Data_Sistema_Atual);
+      const diasComSistemaAtual = dataSistemaAtual ? daysBetween(new Date(), dataSistemaAtual) : null;
+      const dataDemo = parseBRDate(r.Ultima_Demo);
+      const diasDesdeDemo = dataDemo ? daysBetween(new Date(), dataDemo) : null;
+      const products = PRODUCT_COLS.reduce((acc,c)=>{ acc[c] = (r[c]||'').toString().trim(); return acc; }, {});
+      const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
+      return {
+        Responsavel: r.Responsavel || '',
+        Prospect: (r.Prospect || '').toString().trim() || '(sem nome)',
+        Tipo: tipo,
+        Cliente: STATUS_ORDER.includes(cliente) ? cliente : cliente,
+        Sistema_Atual: (r.Sistema_Atual || '').toString().trim(),
+        Usuarios: usuarios,
+        ValorRaw: r.Valor_Contrato || '',
+        ValorNum: valorNum,
+        UltimaAtividade: ultimaAtiv,
+        diasSemContato: diasSemContato,
+        SGD: r.SGD || '',
+        Endereco: endereco,
+        Cidade: extractCity(endereco),
+        dataCadastro: dataCadastro,
+        anoCadastro: dataCadastro ? dataCadastro.getFullYear() : null,
+        dataSistemaAtual: dataSistemaAtual,
+        diasComSistemaAtual: diasComSistemaAtual,
+        dataDemo: dataDemo,
+        diasDesdeDemo: diasDesdeDemo,
+        products: products,
+        numProdutosSim: numProdutosSim
+      };
+    }).filter(r => r.Prospect !== '(sem nome)' || r.ValorNum > 0 || r.Tipo !== 'Não informado');
+
+    // init filters
+    const statuses = [...new Set(RAW.map(r=>r.Cliente))];
+    activeStatus = new Set(statuses);
+    const tipos = [...new Set(RAW.map(r=>r.Tipo))];
+    activeTipo = new Set(tipos);
+    const diasVals = RAW.map(r=>r.diasSemContato).filter(d=>d!=null);
+    maxDiasPossible = diasVals.length ? Math.max(...diasVals) : 365;
+    minDias = 0;
+    selectedCidade = '';
+    selectedSistema = '';
+    usuariosMin = null;
+    usuariosMax = null;
+    PRODUCT_COLS.forEach(c=> productActive[c] = new Set());
+
+    buildChips('chipsStatus', statuses.sort((a,b)=> STATUS_ORDER.indexOf(a)-STATUS_ORDER.indexOf(b)), activeStatus, 'status');
+    buildChips('chipsTipo', tipos.sort((a,b)=> countTipo(b)-countTipo(a)), activeTipo, 'tipo');
+    buildSelectOptions('cidadeSelect', aggCount(RAW, r=>r.Cidade), 'Todas as cidades');
+    buildSelectOptions('sistemaSelect', aggCount(RAW, r=>r.Sistema_Atual), 'Todos');
+    buildProductFilters();
+    document.getElementById('usuariosMin').value = '';
+    document.getElementById('usuariosMax').value = '';
+    document.getElementById('usuariosMax').placeholder = 'máx (' + Math.max(...RAW.map(r=>r.Usuarios), 0) + ')';
+    const diasInput = document.getElementById('diasInput');
+    diasInput.max = maxDiasPossible;
+    diasInput.value = '';
+    document.getElementById('demoDiasInput').value = '';
+    minDiasDemo = 0;
+
+    document.getElementById('fileNote').textContent = fileName + ' · ' + fmtInt(RAW.length) + ' contas carregadas';
+    document.getElementById('uploadScreen').style.display = 'none';
+    document.getElementById('dashboard').classList.add('active');
+    document.getElementById('topActions').style.display = 'flex';
+
+    initCalendarControls();
+    applyFilters();
+  }
+
+  function initCalendarControls(){
+    selectedCalDate = null;
+    const byDate = buildActivityMap(RAW);
+    const months = [...new Set(Object.keys(byDate).map(k=>k.slice(0,7)))].sort();
+    const sel = document.getElementById('calMonthSelect');
+    if(!months.length){
+      sel.innerHTML = '<option value="">Sem datas de atividade</option>';
+      return;
+    }
+    sel.innerHTML = months.map(m=>{
+      const [y,mm] = m.split('-');
+      return `<option value="${m}">${MONTH_NAMES[Number(mm)-1]}/${y}</option>`;
+    }).join('');
+    sel.value = months[months.length-1];
+    sel.onchange = renderCalendarGrid;
+  }
+
+  function renderCalendarGrid(){
+    const sel = document.getElementById('calMonthSelect');
+    const grid = document.getElementById('calGrid');
+    const statEl = document.getElementById('calStat');
+    const val = sel.value;
+    if(!val){
+      grid.innerHTML = '';
+      statEl.innerHTML = '<span class="desc">Sem datas de atividade na planilha.</span>';
+      selectedCalDate = null;
+      document.getElementById('dayDetailCard').style.display = 'none';
+      return;
+    }
+    if(selectedCalDate && selectedCalDate.slice(0,7) !== val){ selectedCalDate = null; }
+
+    const [year, month] = val.split('-').map(Number); // month = 1-based
+    const byDate = buildActivityMap(VIEW);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const firstDow = new Date(year, month-1, 1).getDay();
+
+    let html = DOW_LABELS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+    for(let i=0;i<firstDow;i++) html += '<div class="cal-day empty"></div>';
+    let workedDays = 0;
+    for(let d=1; d<=daysInMonth; d++){
+      const key = year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const count = byDate[key] || 0;
+      const dow = new Date(year, month-1, d).getDay();
+      const isWeekend = dow===0 || dow===6;
+      let cls = 'cal-day';
+      if(isWeekend) cls += ' weekend';
+      if(count>0){
+        workedDays++;
+        cls += count>=5 ? ' active-3' : (count>=2 ? ' active-2' : ' active-1');
+        if(key===selectedCalDate) cls += ' selected';
+        html += `<button type="button" class="${cls}" data-date="${key}" title="${key}: ${count} conta(s) com última atividade — clique para ver">${d}</button>`;
+      }else{
+        html += `<div class="${cls}" title="${key}: sem atividade registrada">${d}</div>`;
+      }
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll('button.cal-day').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selectedCalDate = (selectedCalDate === btn.dataset.date) ? null : btn.dataset.date;
+        renderCalendarGrid();
+      });
+    });
+
+    const capacity = workingDaysInMonth(year, month-1);
+    const pct = capacity ? Math.round(1000*workedDays/capacity)/10 : 0;
+    statEl.innerHTML = `<span class="big">${workedDays}</span><span class="desc">dias com atividade registrada de ${capacity} dias úteis no mês (${pct}%)</span>`;
+
+    renderDayDetail(selectedCalDate);
+  }
+
+  function renderDayDetail(dateStr){
+    const card = document.getElementById('dayDetailCard');
+    const list = document.getElementById('dayDetailList');
+    const label = document.getElementById('dayDetailDate');
+    if(!dateStr){ card.style.display = 'none'; return; }
+    const matches = VIEW.filter(r=> r.UltimaAtividade && dateKey(r.UltimaAtividade)===dateStr)
+      .sort((a,b)=> b.ValorNum - a.ValorNum);
+    const [y,m,d] = dateStr.split('-');
+    label.textContent = `${d}/${m}/${y} (${fmtInt(matches.length)})`;
+    card.style.display = '';
+    if(!matches.length){
+      list.innerHTML = '<li class="empty-note">Nenhuma conta encontrada para esse dia no filtro atual.</li>';
+      return;
+    }
+    list.innerHTML = matches.map(r=>{
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      return `<li>
+        <span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.Sistema_Atual? ' · '+esc(r.Sistema_Atual):''}${r.ValorNum? ' · '+fmtBRL(r.ValorNum):''}</span></span>
+      </li>`;
+    }).join('');
+  }
+
+  function renderCalendarChart(){
+    destroyChart('calMensal');
+    const byDate = buildActivityMap(VIEW);
+    const monthAgg = {};
+    Object.keys(byDate).forEach(k=>{
+      const ym = k.slice(0,7);
+      monthAgg[ym] = (monthAgg[ym]||0)+1;
+    });
+    const monthKeys = Object.keys(monthAgg).sort().slice(-24);
+    const worked = monthKeys.map(k=> monthAgg[k]);
+    const capacity = monthKeys.map(k=>{
+      const [y,m] = k.split('-').map(Number);
+      return workingDaysInMonth(y, m-1);
+    });
+    charts.calMensal = new Chart(document.getElementById('chartDiasTrabalhados'), {
+      type:'bar',
+      data:{
+        labels: monthKeys,
+        datasets:[
+          { label:'Dias com atividade', data:worked, backgroundColor:'#4c9a6a', borderRadius:4, maxBarThickness:20 },
+          { label:'Dias úteis no mês', data:capacity, backgroundColor:'rgba(154,165,177,0.18)', borderRadius:4, maxBarThickness:20 }
+        ]
+      },
+      options: baseOptions({
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#9aa5b1', font:{family:'Inter', size:10.5} } } },
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const ym = monthKeys[elements[0].index];
+          applyDrill(r=> r.UltimaAtividade && dateKey(r.UltimaAtividade).slice(0,7)===ym, 'Atividade registrada em '+ym, ['Cliente','Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{
+          x:{ ticks:{ color:'#9aa5b1', font:{family:'JetBrains Mono', size:9.5}, maxRotation:0, autoSkip:true, maxTicksLimit:12 }, grid:{display:false} },
+          y:{ ticks:{ color:'#9aa5b1', font:{family:'JetBrains Mono', size:10} }, grid:{color:'#2e3841'} }
+        }
+      })
+    });
+  }
+
+  function aggCount(rows, keyFn){
+    const agg = {};
+    rows.forEach(r=>{
+      const k = keyFn(r);
+      if(!k) return;
+      agg[k] = (agg[k]||0)+1;
+    });
+    return Object.entries(agg).sort((a,b)=> b[1]-a[1]).map(([name,count])=>({name,count}));
+  }
+
+  function buildSelectOptions(selectId, items, defaultLabel){
+    const el = document.getElementById(selectId);
+    el.innerHTML = `<option value="">${esc(defaultLabel)}</option>` +
+      items.map(it => `<option value="${esc(it.name)}">${esc(it.name)} (${it.count})</option>`).join('');
+  }
+
+  function buildProductFilters(){
+    const el = document.getElementById('productFilters');
+    el.innerHTML = '';
+    PRODUCT_COLS.forEach(c=>{
+      const row = document.createElement('div');
+      row.className = 'prod-row';
+      const label = document.createElement('span');
+      label.className = 'prod-name';
+      label.textContent = PRODUCT_LABELS[c];
+      const toggles = document.createElement('div');
+      toggles.className = 'prod-toggles';
+      ['Sim','Não'].forEach(val=>{
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'prod-pill';
+        b.textContent = val;
+        b.dataset.val = val;
+        b.dataset.active = productActive[c].has(val) ? '1' : '0';
+        b.addEventListener('click', ()=>{
+          if(productActive[c].has(val)){ productActive[c].delete(val); b.dataset.active='0'; }
+          else{ productActive[c].add(val); b.dataset.active='1'; }
+          applyFilters();
+        });
+        toggles.appendChild(b);
+      });
+      row.appendChild(label);
+      row.appendChild(toggles);
+      el.appendChild(row);
+    });
+  }
+
+  function countTipo(t){ return RAW.filter(r=>r.Tipo===t).length; }
+
+  function buildChips(containerId, items, activeSet, kind){
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    items.forEach(item=>{
+      const chip = document.createElement('button');
+      chip.type='button';
+      chip.className='chip';
+      chip.textContent = item + ' (' + (kind==='status'? RAW.filter(r=>r.Cliente===item).length : countTipo(item)) + ')';
+      chip.dataset.active = activeSet.has(item) ? '1':'0';
+      if(kind==='status') chip.dataset.status = item;
+      if(kind==='tipo') chip.dataset.tipo = item;
+      chip.addEventListener('click', ()=>{
+        if(activeSet.has(item)){ activeSet.delete(item); chip.dataset.active='0'; }
+        else{ activeSet.add(item); chip.dataset.active='1'; }
+        applyFilters();
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  document.getElementById('diasInput').addEventListener('input', function(){
+    const v = parseInt(this.value, 10);
+    minDias = isNaN(v) || v < 0 ? 0 : v;
+    applyFilters();
+  });
+  document.getElementById('demoDiasInput').addEventListener('input', function(){
+    const v = parseInt(this.value, 10);
+    minDiasDemo = isNaN(v) || v < 0 ? 0 : v;
+    applyFilters();
+  });
+  document.getElementById('searchBox').addEventListener('input', applyFilters);
+  document.getElementById('cidadeSelect').addEventListener('change', function(){ selectedCidade = this.value; applyFilters(); });
+  document.getElementById('sistemaSelect').addEventListener('change', function(){ selectedSistema = this.value; applyFilters(); });
+  document.getElementById('usuariosMin').addEventListener('input', function(){
+    const v = parseInt(this.value, 10);
+    usuariosMin = isNaN(v) ? null : v;
+    applyFilters();
+  });
+  document.getElementById('usuariosMax').addEventListener('input', function(){
+    const v = parseInt(this.value, 10);
+    usuariosMax = isNaN(v) ? null : v;
+    applyFilters();
+  });
+  function setStatusChips(statuses){
+    activeStatus = new Set(statuses);
+    document.querySelectorAll('#chipsStatus .chip').forEach(c=>{
+      c.dataset.active = statuses.includes(c.dataset.status) ? '1' : '0';
+    });
+  }
+
+  function applyDrill(predicate, label, statusPreset){
+    if(statusPreset) setStatusChips(statusPreset);
+    drillFilter = { predicate, label };
+    applyFilters();
+    const tw = document.querySelector('.table-wrap');
+    if(tw) tw.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function clearDrill(){
+    drillFilter = null;
+    applyFilters();
+  }
+
+  document.getElementById('crossSellN').addEventListener('click', function(){
+    if(this.disabled) return;
+    applyDrill(r=> r.Cliente==='Cliente' && r.numProdutosSim===0, 'Clientes sem nenhum produto adicional', ['Cliente']);
+  });
+  document.getElementById('demoListN').addEventListener('click', function(){
+    if(this.disabled) return;
+    applyDrill(r=> r.Cliente!=='Cliente' && r.diasDesdeDemo!=null, 'Prospects/ex-clientes com demonstração e ainda sem conversão', ['Prospect','Ex-Cliente']);
+  });
+  document.getElementById('btnClearSpecialFilter').addEventListener('click', clearDrill);
+  document.getElementById('btnClear').addEventListener('click', ()=>{
+    activeStatus = new Set(RAW.map(r=>r.Cliente));
+    activeTipo = new Set(RAW.map(r=>r.Tipo));
+    minDias = 0;
+    selectedCidade = '';
+    selectedSistema = '';
+    usuariosMin = null;
+    usuariosMax = null;
+    minDiasDemo = 0;
+    drillFilter = null;
+    PRODUCT_COLS.forEach(c=> productActive[c] = new Set());
+    document.getElementById('diasInput').value = '';
+    document.getElementById('demoDiasInput').value = '';
+    document.getElementById('searchBox').value = '';
+    document.getElementById('cidadeSelect').value = '';
+    document.getElementById('sistemaSelect').value = '';
+    document.getElementById('usuariosMin').value = '';
+    document.getElementById('usuariosMax').value = '';
+    document.querySelectorAll('.chip').forEach(c=> c.dataset.active='1');
+    document.querySelectorAll('.prod-pill').forEach(p=> p.dataset.active='0');
+    applyFilters();
+  });
+
+  function applyFilters(){
+    const q = document.getElementById('searchBox').value.trim().toLowerCase();
+    VIEW = RAW.filter(r=>{
+      if(!activeStatus.has(r.Cliente)) return false;
+      if(!activeTipo.has(r.Tipo)) return false;
+      if(minDias > 0 && (r.diasSemContato==null || r.diasSemContato < minDias)) return false;
+      if(minDiasDemo > 0 && (r.diasDesdeDemo==null || r.diasDesdeDemo < minDiasDemo)) return false;
+      if(selectedCidade && r.Cidade !== selectedCidade) return false;
+      if(selectedSistema && r.Sistema_Atual !== selectedSistema) return false;
+      if(usuariosMin!=null && r.Usuarios < usuariosMin) return false;
+      if(usuariosMax!=null && r.Usuarios > usuariosMax) return false;
+      for(const c of PRODUCT_COLS){
+        if(productActive[c].size>0 && !productActive[c].has(r.products[c])) return false;
+      }
+      if(drillFilter && !drillFilter.predicate(r)) return false;
+      if(q){
+        const hay = (r.Prospect+' '+r.Sistema_Atual).toLowerCase();
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    const pill = document.getElementById('specialFilterPill');
+    if(drillFilter){
+      pill.style.display = 'flex';
+      document.getElementById('specialFilterLabel').textContent = drillFilter.label;
+    }else{
+      pill.style.display = 'none';
+    }
+    renderKPIs();
+    renderCharts();
+    renderAlerts();
+    renderRiskList();
+    renderCrossSellList();
+    renderDemoList();
+    renderTable();
+  }
+
+  // ---------- KPIs ----------
+  function renderKPIs(){
+    const total = VIEW.length;
+    const clientes = VIEW.filter(r=>r.Cliente==='Cliente');
+    const prospects = VIEW.filter(r=>r.Cliente==='Prospect');
+    const exclientes = VIEW.filter(r=>r.Cliente==='Ex-Cliente');
+    const valorTotal = clientes.reduce((s,r)=>s+r.ValorNum,0);
+    const ticketMedio = clientes.length ? valorTotal/clientes.length : 0;
+    const usuariosTotal = clientes.reduce((s,r)=>s+r.Usuarios,0);
+    const semContato = VIEW.filter(r=> r.Cliente!=='Ex-Cliente' && r.diasSemContato!=null && r.diasSemContato>90).length;
+
+    const kpis = [
+      {label:'Total de contas', value: fmtInt(total)},
+      {label:'Clientes', value: fmtInt(clientes.length), cls:'pos'},
+      {label:'Prospects', value: fmtInt(prospects.length)},
+      {label:'Ex-clientes', value: fmtInt(exclientes.length), cls:'alert'},
+      {label:'Receita mensal (carteira)', value: fmtBRL(valorTotal), cls:'money'},
+      {label:'Ticket médio', value: fmtBRL(ticketMedio), cls:'money'},
+      {label:'Usuários ativos', value: fmtInt(usuariosTotal)},
+      {label:'Sem contato 90+ dias', value: fmtInt(semContato), cls:'alert'},
+    ];
+    document.getElementById('kpiStrip').innerHTML = kpis.map(k=>
+      `<div class="kpi ${k.cls||''}"><span class="label">${k.label}</span><span class="value">${k.value}</span></div>`
+    ).join('');
+    document.getElementById('visaoGeralN').textContent = '('+fmtInt(total)+' contas no filtro atual)';
+  }
+
+  // ---------- Charts ----------
+  function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+  function baseOptions(extra){
+    return Object.assign({
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#9aa5b1', font:{family:'Inter', size:11} } } },
+      scales:{}
+    }, extra||{});
+  }
+
+  function renderCharts(){
+    if(typeof Chart === 'undefined'){
+      document.querySelectorAll('.chart-wrap').forEach(w=>{
+        w.innerHTML = '<p class="empty-note">Biblioteca de gráficos indisponível — recarregue a página.</p>';
+      });
+      return;
+    }
+    // status donut
+    destroyChart('status');
+    const statusCounts = STATUS_ORDER.map(s=> VIEW.filter(r=>r.Cliente===s).length);
+    charts.status = new Chart(document.getElementById('chartStatus'), {
+      type:'doughnut',
+      data:{ labels:STATUS_ORDER, datasets:[{ data:statusCounts, backgroundColor: STATUS_ORDER.map(s=>STATUS_COLOR[s]), borderColor:'#1c232b', borderWidth:2 }]},
+      options: baseOptions({ cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ color:'#9aa5b1', font:{family:'Inter', size:11} } } } })
+    });
+
+    // tipo bar
+    destroyChart('tipo');
+    const tipoAgg = {};
+    VIEW.forEach(r=>{ tipoAgg[r.Tipo] = (tipoAgg[r.Tipo]||0)+1; });
+    const tipoEntries = Object.entries(tipoAgg).sort((a,b)=>b[1]-a[1]);
+    charts.tipo = new Chart(document.getElementById('chartTipo'), {
+      type:'bar',
+      data:{ labels:tipoEntries.map(e=>e[0]), datasets:[{ data:tipoEntries.map(e=>e[1]), backgroundColor:'#c9a227', borderRadius:4, maxBarThickness:28 }]},
+      options: baseOptions({
+        indexAxis:'y',
+        plugins:{legend:{display:false}},
+        scales:{ x:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} }, y:{ ticks:{color:'#eae6da', font:{family:'Inter', size:11.5}}, grid:{display:false} } }
+      })
+    });
+
+    // concorrentes bar (Prospect + Ex-Cliente only, ignore known "no system" placeholders)
+    destroyChart('concorrentes');
+    const concAgg = {};
+    VIEW.filter(r=> r.Cliente!=='Cliente' && !IGNORE_SISTEMA.has(r.Sistema_Atual) && r.Sistema_Atual).forEach(r=>{
+      concAgg[r.Sistema_Atual] = (concAgg[r.Sistema_Atual]||0)+1;
+    });
+    const concEntries = Object.entries(concAgg).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    charts.concorrentes = new Chart(document.getElementById('chartConcorrentes'), {
+      type:'bar',
+      data:{ labels:concEntries.map(e=>e[0]), datasets:[{ data:concEntries.map(e=>e[1]), backgroundColor:'#5b7fa6', borderRadius:4, maxBarThickness:22 }]},
+      options: baseOptions({
+        indexAxis:'y',
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const sistema = concEntries[elements[0].index][0];
+          applyDrill(r=> r.Cliente!=='Cliente' && r.Sistema_Atual===sistema, 'Sistema atual: '+sistema, ['Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ x:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} }, y:{ ticks:{color:'#eae6da', font:{family:'Inter', size:10.5}}, grid:{display:false} } }
+      })
+    });
+    if(concEntries.length===0){
+      charts.concorrentes.canvas.parentElement.insertAdjacentHTML('afterbegin','');
+    }
+
+    // produtos adoption among clients
+    destroyChart('produtos');
+    const clientesView = VIEW.filter(r=>r.Cliente==='Cliente');
+    const prodPct = PRODUCT_COLS.map(c=>{
+      const withInfo = clientesView.filter(r=> r.products[c]==='Sim' || r.products[c]==='Não');
+      const sim = clientesView.filter(r=> r.products[c]==='Sim').length;
+      return withInfo.length ? Math.round(100*sim/withInfo.length) : 0;
+    });
+    charts.produtos = new Chart(document.getElementById('chartProdutos'), {
+      type:'bar',
+      data:{ labels:PRODUCT_COLS.map(c=>c.replace('_',' ')), datasets:[{ data:prodPct, backgroundColor:'#4c9a6a', borderRadius:4, maxBarThickness:34 }]},
+      options: baseOptions({
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const col = PRODUCT_COLS[elements[0].index];
+          applyDrill(r=> r.Cliente==='Cliente' && r.products[col]==='Sim', 'Clientes com '+PRODUCT_LABELS[col]+' = Sim', ['Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ y:{ min:0, max:100, ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}, callback:v=>v+'%'}, grid:{color:'#2e3841'} }, x:{ ticks:{color:'#eae6da', font:{family:'Inter', size:11}}, grid:{display:false} } }
+      })
+    });
+
+    // atividade por mes (last 24 months with data)
+    destroyChart('atividade');
+    const monthAgg = {};
+    VIEW.forEach(r=>{
+      if(!r.UltimaAtividade) return;
+      const key = r.UltimaAtividade.getFullYear()+'-'+String(r.UltimaAtividade.getMonth()+1).padStart(2,'0');
+      monthAgg[key] = (monthAgg[key]||0)+1;
+    });
+    const monthKeys = Object.keys(monthAgg).sort().slice(-24);
+    charts.atividade = new Chart(document.getElementById('chartAtividade'), {
+      type:'line',
+      data:{ labels:monthKeys, datasets:[{ data:monthKeys.map(k=>monthAgg[k]), borderColor:'#c9a227', backgroundColor:'rgba(201,162,39,0.12)', fill:true, tension:.3, pointRadius:2 }]},
+      options: baseOptions({
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const ym = monthKeys[elements[0].index];
+          applyDrill(r=> r.UltimaAtividade && (r.UltimaAtividade.getFullYear()+'-'+String(r.UltimaAtividade.getMonth()+1).padStart(2,'0'))===ym, 'Última atividade em '+ym, ['Cliente','Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ x:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12}, grid:{display:false} }, y:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} } }
+      })
+    });
+
+    renderPareto();
+    renderCrossSellChart();
+    renderTempoSistema();
+    renderTempoDemo();
+    renderCoorte();
+    renderCalendarChart();
+    renderCalendarGrid();
+  }
+
+  // ---- Concentração & risco (Pareto) ----
+  function renderPareto(){
+    destroyChart('pareto');
+    const clientes = VIEW.filter(r=>r.Cliente==='Cliente').slice().sort((a,b)=> b.ValorNum - a.ValorNum);
+    const totalValor = clientes.reduce((s,r)=>s+r.ValorNum,0);
+    const topN = clientes.slice(0,15);
+    let cum = 0;
+    const cumPct = topN.map(r=>{ cum += r.ValorNum; return totalValor ? Math.round(1000*cum/totalValor)/10 : 0; });
+    charts.pareto = new Chart(document.getElementById('chartPareto'), {
+      type:'bar',
+      data:{
+        labels: topN.map(r=> r.Prospect.length>16 ? r.Prospect.slice(0,16)+'…' : r.Prospect),
+        datasets:[
+          { type:'bar', label:'Valor (R$)', data: topN.map(r=>r.ValorNum), backgroundColor:'#c9a227', borderRadius:4, yAxisID:'y' },
+          { type:'line', label:'% acumulado', data: cumPct, borderColor:'#5b7fa6', backgroundColor:'#5b7fa6', yAxisID:'y1', tension:.25, pointRadius:3 }
+        ]
+      },
+      options: baseOptions({
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#9aa5b1', font:{family:'Inter', size:10.5} } } },
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const acc = topN[elements[0].index];
+          if(!acc) return;
+          applyDrill(r=> (acc.SGD ? r.SGD===acc.SGD : r.Prospect===acc.Prospect) && r.Cliente==='Cliente', 'Cliente: '+acc.Prospect, ['Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{
+          x:{ ticks:{ color:'#9aa5b1', font:{family:'Inter', size:9.5}, maxRotation:55, minRotation:35 }, grid:{display:false} },
+          y:{ position:'left', ticks:{ color:'#9aa5b1', font:{family:'JetBrains Mono', size:9.5}, callback:v=>'R$'+Math.round(v/1000)+'k' }, grid:{color:'#2e3841'} },
+          y1:{ position:'right', min:0, max:100, ticks:{ color:'#5b7fa6', font:{family:'JetBrains Mono', size:9.5}, callback:v=>v+'%' }, grid:{display:false} }
+        }
+      })
+    });
+    const n10 = Math.max(1, Math.round(clientes.length*0.1));
+    const top10Valor = clientes.slice(0,n10).reduce((s,r)=>s+r.ValorNum,0);
+    const pct = totalValor ? Math.round(1000*top10Valor/totalValor)/10 : 0;
+    document.getElementById('paretoStat').textContent = clientes.length ? pct+'%' : '—';
+  }
+
+  function renderRiskList(){
+    const clientes = VIEW.filter(r=>r.Cliente==='Cliente');
+    const totalValor = clientes.reduce((s,r)=>s+r.ValorNum,0);
+    const top = clientes.slice().sort((a,b)=>b.ValorNum-a.ValorNum).slice(0,8);
+    const list = document.getElementById('riskList');
+    if(!top.length || !totalValor){
+      list.innerHTML = '<li class="empty-note">Sem clientes com valor de contrato no filtro atual.</li>';
+      return;
+    }
+    list.innerHTML = top.map((r,i)=>{
+      const pct = Math.round(1000*r.ValorNum/totalValor)/10;
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      return `<li>
+        <button type="button" class="pct-badge" data-risk-idx="${i}" title="Ver essa conta na tabela">${pct}%</button>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)} · ${fmtBRL(r.ValorNum)}</span></span>
+      </li>`;
+    }).join('');
+    list.querySelectorAll('button[data-risk-idx]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const acc = top[Number(btn.dataset.riskIdx)];
+        if(!acc) return;
+        applyDrill(r=> (acc.SGD ? r.SGD===acc.SGD : r.Prospect===acc.Prospect) && r.Cliente==='Cliente', 'Cliente: '+acc.Prospect, ['Cliente']);
+      });
+    });
+  }
+
+  // ---- Cross-sell ----
+  function renderCrossSellChart(){
+    destroyChart('crossSell');
+    const clientes = VIEW.filter(r=>r.Cliente==='Cliente');
+    const buckets = [0,0,0,0,0,0];
+    clientes.forEach(r=>{ const n = Math.min(r.numProdutosSim,5); buckets[n]++; });
+    charts.crossSell = new Chart(document.getElementById('chartCrossSell'), {
+      type:'bar',
+      data:{ labels:['0 produtos','1 produto','2 produtos','3 produtos','4 produtos','5 produtos'], datasets:[{ data:buckets, backgroundColor:'#5b7fa6', borderRadius:4, maxBarThickness:34 }]},
+      options: baseOptions({
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const n = elements[0].index;
+          applyDrill(r=> r.Cliente==='Cliente' && Math.min(r.numProdutosSim,5)===n, `Clientes com ${n} produto(s) adotado(s)`, ['Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ y:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} }, x:{ ticks:{color:'#eae6da', font:{family:'Inter', size:10.5}}, grid:{display:false} } }
+      })
+    });
+  }
+
+  function renderCrossSellList(){
+    const zeroProd = VIEW.filter(r=>r.Cliente==='Cliente' && r.numProdutosSim===0);
+    const countBtn = document.getElementById('crossSellN');
+    countBtn.textContent = zeroProd.length ? `(${fmtInt(zeroProd.length)} — ver todas)` : '(0)';
+    countBtn.disabled = zeroProd.length === 0;
+    const top = zeroProd.slice().sort((a,b)=>b.ValorNum-a.ValorNum).slice(0,12);
+    const list = document.getElementById('crossSellList');
+    if(!top.length){
+      list.innerHTML = '<li class="empty-note">Nenhum cliente sem produtos adicionais no filtro atual.</li>';
+      return;
+    }
+    list.innerHTML = top.map(r=>{
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      return `<li>
+        <span class="pct-badge">${r.ValorNum? fmtBRL(r.ValorNum):'—'}</span>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.Cidade? ' · '+esc(r.Cidade):''}</span></span>
+      </li>`;
+    }).join('');
+  }
+
+  // ---- Tempo com sistema atual ----
+  function renderTempoSistema(){
+    destroyChart('tempoSistema');
+    const elegible = VIEW.filter(r=> r.Cliente!=='Cliente' && r.dataSistemaAtual && !IGNORE_SISTEMA.has(r.Sistema_Atual));
+    const bucketDefs = [
+      {label:'< 1 ano', test:anos=>anos<1},
+      {label:'1–3 anos', test:anos=>anos>=1 && anos<3},
+      {label:'3–5 anos', test:anos=>anos>=3 && anos<5},
+      {label:'5–10 anos', test:anos=>anos>=5 && anos<10},
+      {label:'10+ anos', test:anos=>anos>=10}
+    ];
+    const counts = bucketDefs.map(b=> elegible.filter(r=> b.test(r.diasComSistemaAtual/365)).length);
+    charts.tempoSistema = new Chart(document.getElementById('chartTempoSistema'), {
+      type:'bar',
+      data:{ labels:bucketDefs.map(b=>b.label), datasets:[{ data:counts, backgroundColor:'#c1543d', borderRadius:4, maxBarThickness:40 }]},
+      options: baseOptions({
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const b = bucketDefs[elements[0].index];
+          applyDrill(r=> r.Cliente!=='Cliente' && r.dataSistemaAtual && !IGNORE_SISTEMA.has(r.Sistema_Atual) && b.test(r.diasComSistemaAtual/365), 'Tempo com sistema atual: '+b.label, ['Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ y:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} }, x:{ ticks:{color:'#eae6da', font:{family:'Inter', size:11}}, grid:{display:false} } }
+      })
+    });
+  }
+
+  // ---- Demonstrações sem conversão ----
+  function renderTempoDemo(){
+    destroyChart('tempoDemo');
+    const elegible = VIEW.filter(r=> r.Cliente!=='Cliente' && r.diasDesdeDemo!=null);
+    const bucketDefs = [
+      {label:'< 30 dias', test:d=>d<30},
+      {label:'30–90 dias', test:d=>d>=30 && d<90},
+      {label:'3–6 meses', test:d=>d>=90 && d<180},
+      {label:'6–12 meses', test:d=>d>=180 && d<365},
+      {label:'1+ ano', test:d=>d>=365}
+    ];
+    const counts = bucketDefs.map(b=> elegible.filter(r=> b.test(r.diasDesdeDemo)).length);
+    charts.tempoDemo = new Chart(document.getElementById('chartTempoDemo'), {
+      type:'bar',
+      data:{ labels:bucketDefs.map(b=>b.label), datasets:[{ data:counts, backgroundColor:'#5b7fa6', borderRadius:4, maxBarThickness:38 }]},
+      options: baseOptions({
+        plugins:{legend:{display:false}},
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const b = bucketDefs[elements[0].index];
+          applyDrill(r=> r.Cliente!=='Cliente' && r.diasDesdeDemo!=null && b.test(r.diasDesdeDemo), 'Tempo desde a demonstração: '+b.label, ['Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{ y:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} }, x:{ ticks:{color:'#eae6da', font:{family:'Inter', size:10.5}}, grid:{display:false} } }
+      })
+    });
+  }
+
+  function renderDemoList(){
+    const eligible = VIEW.filter(r=> r.Cliente!=='Cliente' && r.diasDesdeDemo!=null);
+    const countBtn = document.getElementById('demoListN');
+    countBtn.textContent = eligible.length ? `(${fmtInt(eligible.length)} — ver todas)` : '(0)';
+    countBtn.disabled = eligible.length === 0;
+    const top = eligible.slice().sort((a,b)=> a.diasDesdeDemo-b.diasDesdeDemo).slice(0,15);
+    const list = document.getElementById('demoList');
+    if(!top.length){
+      list.innerHTML = '<li class="empty-note">Nenhuma conta com demonstração registrada no filtro atual.</li>';
+      return;
+    }
+    list.innerHTML = top.map(r=>{
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      return `<li>
+        <span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.Sistema_Atual? ' · '+esc(r.Sistema_Atual):''}</span></span>
+        <span class="days">${r.diasDesdeDemo}d</span>
+      </li>`;
+    }).join('');
+  }
+  function renderCoorte(){
+    destroyChart('coorte');
+    const withYear = VIEW.filter(r=>r.anoCadastro);
+    const years = [...new Set(withYear.map(r=>r.anoCadastro))].sort();
+    const counts = years.map(y=> withYear.filter(r=>r.anoCadastro===y).length);
+    const convPct = years.map(y=>{
+      const cohort = withYear.filter(r=>r.anoCadastro===y);
+      const conv = cohort.filter(r=>r.Cliente==='Cliente').length;
+      return cohort.length ? Math.round(1000*conv/cohort.length)/10 : 0;
+    });
+    charts.coorte = new Chart(document.getElementById('chartCoorte'), {
+      type:'bar',
+      data:{
+        labels: years,
+        datasets:[
+          { type:'bar', label:'Contas cadastradas', data:counts, backgroundColor:'#2b3b4c', borderRadius:3, yAxisID:'y' },
+          { type:'line', label:'% convertido em cliente', data:convPct, borderColor:'#4c9a6a', backgroundColor:'#4c9a6a', yAxisID:'y1', tension:.25, pointRadius:3 }
+        ]
+      },
+      options: baseOptions({
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#9aa5b1', font:{family:'Inter', size:10.5} } } },
+        onClick:(evt, elements)=>{
+          if(!elements.length) return;
+          const year = years[elements[0].index];
+          applyDrill(r=> r.anoCadastro===year, 'Cadastrados em '+year, ['Cliente','Prospect','Ex-Cliente']);
+        },
+        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+        scales:{
+          x:{ ticks:{ color:'#9aa5b1', font:{family:'JetBrains Mono', size:10} }, grid:{display:false} },
+          y:{ position:'left', ticks:{ color:'#9aa5b1', font:{family:'JetBrains Mono', size:9.5} }, grid:{color:'#2e3841'} },
+          y1:{ position:'right', min:0, max:100, ticks:{ color:'#4c9a6a', font:{family:'JetBrains Mono', size:9.5}, callback:v=>v+'%' }, grid:{display:false} }
+        }
+      })
+    });
+  }
+
+  // ---------- Alerts ----------
+  function renderAlerts(){
+    const candidates = VIEW.filter(r=> r.Cliente!=='Ex-Cliente' && r.diasSemContato!=null && r.diasSemContato>60)
+      .sort((a,b)=> (b.ValorNum - a.ValorNum) || (b.diasSemContato - a.diasSemContato))
+      .slice(0,15);
+    document.getElementById('alertN').textContent = '('+fmtInt(candidates.length)+')';
+    const list = document.getElementById('alertList');
+    if(candidates.length===0){
+      list.innerHTML = '<li class="empty-note">Nenhuma conta acima de 60 dias sem contato no filtro atual.</li>';
+      return;
+    }
+    list.innerHTML = candidates.map(r=>{
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      return `<li>
+        <span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.ValorNum? ' · '+fmtBRL(r.ValorNum):''}</span></span>
+        <span class="days">${r.diasSemContato}d</span>
+      </li>`;
+    }).join('');
+  }
+
+  // ---------- Table ----------
+  document.querySelectorAll('th button[data-sort]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.sort;
+      if(sortState.key===key){ sortState.dir = sortState.dir==='asc'?'desc':'asc'; }
+      else{ sortState = {key, dir: (key==='ValorNum'||key==='diasSemContato'||key==='Usuarios') ? 'desc':'asc'}; }
+      renderTable();
+    });
+  });
+
+  function renderTable(){
+    const rows = [...VIEW].sort((a,b)=>{
+      let va = a[sortState.key], vb = b[sortState.key];
+      if(va==null) va = -Infinity; if(vb==null) vb = -Infinity;
+      if(typeof va === 'string'){ va = va.toLowerCase(); vb = (vb||'').toLowerCase(); }
+      if(va<vb) return sortState.dir==='asc'?-1:1;
+      if(va>vb) return sortState.dir==='asc'?1:-1;
+      return 0;
+    });
+    document.getElementById('tableCount').textContent = fmtInt(rows.length)+' contas';
+    document.querySelectorAll('th .arrow').forEach(a=>a.textContent='');
+    const activeBtn = document.querySelector(`th button[data-sort="${sortState.key}"] .arrow`);
+    if(activeBtn) activeBtn.textContent = sortState.dir==='asc' ? '↑' : '↓';
+
+    const frag = rows.slice(0,500).map(r=>{
+      const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : esc(r.Prospect);
+      return `<tr>
+        <td class="name">${link}</td>
+        <td>${esc(r.Tipo)}</td>
+        <td><span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span></td>
+        <td>${esc(r.Cidade)||'—'}</td>
+        <td>${esc(r.Sistema_Atual)||'—'}</td>
+        <td class="num">${r.Usuarios||'—'}</td>
+        <td class="num">${r.ValorNum? fmtBRL(r.ValorNum) : '—'}</td>
+        <td class="num">${r.diasSemContato!=null ? r.diasSemContato+'d' : '—'}</td>
+        <td class="num">${r.diasDesdeDemo!=null ? r.diasDesdeDemo+'d' : '—'}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('tableBody').innerHTML = frag || '<tr><td colspan="9" class="empty-note">Nenhuma conta encontrada com os filtros atuais.</td></tr>';
+    if(rows.length>500){
+      document.getElementById('tableBody').insertAdjacentHTML('beforeend', `<tr><td colspan="9" class="empty-note">Mostrando as 500 primeiras de ${fmtInt(rows.length)} contas — refine os filtros ou exporte para ver todas.</td></tr>`);
+    }
+    document.getElementById('footSummary').textContent = `${fmtInt(RAW.length)} contas na planilha original · ${fmtInt(VIEW.length)} após filtros`;
+  }
+
+  // ---------- Export ----------
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    const headers = ['Conta','Tipo','Status','Cidade','Sistema_Atual','Usuarios','Valor_Contrato','Dias_Sem_Contato','Dias_Desde_Demo'];
+    const lines = [headers.join(';')];
+    VIEW.forEach(r=>{
+      lines.push([
+        '"'+r.Prospect.replace(/"/g,'""')+'"',
+        r.Tipo, r.Cliente, '"'+(r.Cidade||'').replace(/"/g,'""')+'"',
+        '"'+(r.Sistema_Atual||'').replace(/"/g,'""')+'"',
+        r.Usuarios, r.ValorNum.toFixed(2).replace('.',','),
+        r.diasSemContato!=null? r.diasSemContato : '',
+        r.diasDesdeDemo!=null? r.diasDesdeDemo : ''
+      ].join(';'));
+    });
+    const blob = new Blob(["\uFEFF"+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'carteira_filtrada.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btnExportXlsx').addEventListener('click', ()=> exportXlsx());
+  document.getElementById('btnExportFiltered').addEventListener('click', ()=> exportXlsx());
+
+  function slugify(str){
+    return str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').toLowerCase();
+  }
+
+  function exportXlsx(){
+    if(typeof XLSX === 'undefined'){
+      alert('A biblioteca de planilhas não carregou. Recarregue a página e tente novamente.');
+      return;
+    }
+    if(VIEW.length === 0){
+      alert('Não há contas no filtro atual para exportar.');
+      return;
+    }
+    const exportRows = VIEW.map(r=>({
+      'Conta': r.Prospect,
+      'Tipo': r.Tipo,
+      'Status': r.Cliente,
+      'Cidade': r.Cidade || '',
+      'Sistema Atual': r.Sistema_Atual || '',
+      'Usuários': r.Usuarios || '',
+      'Valor Contrato (R$)': r.ValorNum ? Number(r.ValorNum.toFixed(2)) : 0,
+      'Última Atividade': r.UltimaAtividade ? r.UltimaAtividade.toLocaleDateString('pt-BR') : '',
+      'Dias Sem Contato': r.diasSemContato != null ? r.diasSemContato : '',
+      'Última Demo': r.dataDemo ? r.dataDemo.toLocaleDateString('pt-BR') : '',
+      'Dias Desde Demo': r.diasDesdeDemo != null ? r.diasDesdeDemo : '',
+      'Link SGD': r.SGD || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    ws['!cols'] = [
+      {wch:32}, {wch:14}, {wch:12}, {wch:20}, {wch:26}, {wch:10}, {wch:16}, {wch:14}, {wch:14}, {wch:14}, {wch:14}, {wch:40}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Carteira filtrada');
+
+    // small summary sheet
+    const clientes = VIEW.filter(r=>r.Cliente==='Cliente');
+    const summary = [
+      {Indicador:'Filtro aplicado', Valor: drillFilter ? drillFilter.label : 'Nenhum (todos os filtros da barra lateral)'},
+      {Indicador:'Total de contas no filtro', Valor: VIEW.length},
+      {Indicador:'Clientes', Valor: clientes.length},
+      {Indicador:'Prospects', Valor: VIEW.filter(r=>r.Cliente==='Prospect').length},
+      {Indicador:'Ex-clientes', Valor: VIEW.filter(r=>r.Cliente==='Ex-Cliente').length},
+      {Indicador:'Receita mensal da carteira (R$)', Valor: Number(clientes.reduce((s,r)=>s+r.ValorNum,0).toFixed(2))},
+      {Indicador:'Usuários ativos', Valor: clientes.reduce((s,r)=>s+r.Usuarios,0)},
+      {Indicador:'Exportado em', Valor: new Date().toLocaleString('pt-BR')}
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summary);
+    wsSummary['!cols'] = [{wch:34},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo');
+
+    const stamp = new Date().toISOString().slice(0,10);
+    const namePart = drillFilter ? slugify(drillFilter.label) : 'carteira_filtrada';
+    XLSX.writeFile(wb, namePart+'_'+stamp+'.xlsx');
+  }
+
+})();
+</script>
+</body>
+</html>

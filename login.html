@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login · Painel Comercial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#12161c; --paper:#1c232b; --paper-raised:#232b34; --line:#2e3841;
+    --text:#eae6da; --text-dim:#9aa5b1; --text-faint:#5f6b78;
+    --gold:#c9a227; --red:#c1543d;
+    --serif:'Source Serif 4', Georgia, serif; --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink); color:var(--text); font-family:var(--sans);
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+  }
+  .card{
+    width:100%; max-width:380px; background:var(--paper); border:1px solid var(--line);
+    border-radius:10px; padding:36px 32px;
+  }
+  .eyebrow{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--gold); display:block; margin-bottom:6px;}
+  h1{font-family:var(--serif); font-weight:600; font-size:24px; margin:0 0 22px;}
+  label{font-size:12.5px; color:var(--text-dim); display:block; margin-bottom:6px;}
+  input{
+    width:100%; padding:11px 12px; border-radius:6px; border:1px solid var(--line);
+    background:var(--ink); color:var(--text); font-size:14px; margin-bottom:16px;
+  }
+  input:focus-visible{outline:2px solid var(--gold); outline-offset:1px;}
+  button{
+    width:100%; padding:11px; border-radius:6px; border:1px solid var(--gold);
+    background:var(--gold); color:#1a1406; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  button:disabled{opacity:.6; cursor:default;}
+  button:hover:not(:disabled){background:#dab63a;}
+  #msg{font-size:13px; margin-top:14px; min-height:18px; color:var(--red);}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <span class="eyebrow">Painel Comercial · Livro de Contas</span>
+  <h1>Entrar</h1>
+  <form id="loginForm">
+    <label for="email">E-mail</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="senha">Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" required>
+    <button type="submit" id="btnEntrar">Entrar</button>
+  </form>
+  <div id="msg"></div>
+</div>
+
+<script src="config.js"></script>
+<script>
+(async function(){
+  // Se já está logado, manda direto para o destino certo
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) { await redirecionar(session.user.id); }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const btn = document.getElementById('btnEntrar');
+    const msg = document.getElementById('msg');
+    msg.textContent = '';
+    btn.disabled = true; btn.textContent = 'Entrando…';
+
+    const email = document.getElementById('email').value.trim();
+    const senha = document.getElementById('senha').value;
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
+
+    if (error) {
+      msg.textContent = 'E-mail ou senha inválidos.';
+      btn.disabled = false; btn.textContent = 'Entrar';
+      return;
+    }
+    await redirecionar(data.user.id);
+  });
+
+  async function redirecionar(userId){
+    const { data: perfil, error } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (error || !perfil) {
+      document.getElementById('msg').textContent =
+        'Login ok, mas este usuário ainda não tem perfil configurado. Fale com o gestor.';
+      await supabaseClient.auth.signOut();
+      return;
+    }
+
+    if (perfil.role === 'gestor') {
+      window.location.href = 'admin.html';
+    } else {
+      window.location.href = 'dashboard.html';
+    }
+  }
+})();
+</script>
+</body>
+</html>

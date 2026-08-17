@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar planilhas · Painel Comercial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#12161c; --ink-2:#171c23; --paper:#1c232b; --paper-raised:#232b34; --line:#2e3841;
+    --text:#eae6da; --text-dim:#9aa5b1; --text-faint:#5f6b78;
+    --gold:#c9a227; --green:#4c9a6a; --red:#c1543d;
+    --serif:'Source Serif 4', Georgia, serif; --sans:'Inter', -apple-system, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--ink); color:var(--text); font-family:var(--sans); min-height:100vh;}
+  header{
+    padding:24px 32px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+  }
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold);}
+  h1{font-family:var(--serif); font-weight:600; font-size:24px; margin:4px 0 0;}
+  main{max-width:820px; margin:0 auto; padding:40px 32px;}
+  .btn{
+    font-family:var(--sans); font-size:13px; font-weight:600; padding:9px 16px;
+    border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--text);
+    cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--text-faint); background:var(--paper-raised);}
+  .btn.gold{background:var(--gold); color:#1a1406; border-color:var(--gold);}
+  .btn.gold:hover{background:#dab63a;}
+  .btn:disabled{opacity:.5; cursor:default;}
+  .btn.small{padding:6px 12px; font-size:12px;}
+
+  .vendor-card{
+    border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:16px;
+    background:var(--paper); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .vendor-card.drag{border-color:var(--gold); background:var(--paper-raised);}
+  .vendor-info h3{font-family:var(--serif); font-weight:600; font-size:17px; margin:0 0 4px;}
+  .vendor-info .meta{font-size:12.5px; color:var(--text-dim);}
+  .vendor-info .meta b{color:var(--text);}
+  .vendor-actions{display:flex; align-items:center; gap:10px;}
+  .file-input{display:none;}
+  .vendor-status{font-size:12px; margin-top:6px; min-height:16px;}
+  .vendor-status.ok{color:var(--green);}
+  .vendor-status.err{color:var(--red);}
+  .vendor-status.busy{color:var(--text-dim);}
+
+  #globalMsg{
+    margin-bottom:24px; padding:14px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--paper); font-size:13.5px; line-height:1.6;
+  }
+  #globalMsg.err{border-color:var(--red); color:var(--red);}
+  .note{font-size:12.5px; color:var(--text-faint); margin-top:24px; line-height:1.6;}
+  .empty{color:var(--text-dim); font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span class="eyebrow">Painel Comercial · Área do gestor</span>
+    <h1>Importar planilhas por vendedor</h1>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a class="btn" href="dashboard.html" style="text-decoration:none; display:inline-flex; align-items:center;">Ver painel</a>
+    <button class="btn" id="btnLogout">Sair</button>
+  </div>
+</header>
+
+<main>
+  <div id="globalMsg" style="display:none;"></div>
+  <div id="vendorList"></div>
+
+  <p class="note">
+    Cada vendedor tem seu próprio arquivo .xlsx. Clique ou arraste o arquivo em cima do
+    card do vendedor correspondente — isso <b>substitui apenas os dados dele</b>, sem
+    afetar os outros. Se o arquivo tiver várias abas, todas são lidas.
+  </p>
+</main>
+
+<script src="config.js"></script>
+<script>
+(async function(){
+  // ---- guarda de acesso: só gestor pode ver esta página ----
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const { data: perfil } = await supabaseClient
+    .from('profiles').select('role').eq('id', session.user.id).single();
+
+  if (!perfil || perfil.role !== 'gestor') {
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{
+    await supabaseClient.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  const globalMsg = document.getElementById('globalMsg');
+  function setGlobalMsg(text, cls){
+    globalMsg.style.display = text ? 'block' : 'none';
+    globalMsg.className = cls || '';
+    globalMsg.textContent = text;
+  }
+
+  // ---- carrega a lista de vendedores cadastrados ----
+  const { data: vendedores, error: vendErr } = await supabaseClient
+    .from('profiles')
+    .select('id, nome_exibicao, responsavel_nome')
+    .eq('role', 'vendedor')
+    .order('nome_exibicao');
+
+  if (vendErr) {
+    setGlobalMsg('Erro ao carregar vendedores: ' + vendErr.message, 'err');
+    return;
+  }
+
+  if (!vendedores || vendedores.length === 0) {
+    document.getElementById('vendorList').innerHTML =
+      '<p class="empty">Nenhum vendedor cadastrado ainda. Crie os usuários em Supabase → Authentication, ' +
+      'depois cadastre cada um na tabela <code>profiles</code> com role = \'vendedor\' (veja o README).</p>';
+    return;
+  }
+
+  // ---- conta quantas contas cada vendedor já tem hoje ----
+  const { data: contagens } = await supabaseClient
+    .from('contas')
+    .select('responsavel');
+
+  const totalPorResponsavel = {};
+  (contagens || []).forEach(r=>{
+    totalPorResponsavel[r.responsavel] = (totalPorResponsavel[r.responsavel] || 0) + 1;
+  });
+
+  // ---- monta um card por vendedor ----
+  const listEl = document.getElementById('vendorList');
+  vendedores.forEach(v=>{
+    if (!v.responsavel_nome) return; // perfil sem responsavel_nome configurado
+    const atual = totalPorResponsavel[v.responsavel_nome] || 0;
+
+    const card = document.createElement('div');
+    card.className = 'vendor-card';
+    card.tabIndex = 0;
+    card.innerHTML = `
+      <div class="vendor-info">
+        <h3>${escapeHtml(v.nome_exibicao || v.responsavel_nome)}</h3>
+        <div class="meta">Responsavel: <b>${escapeHtml(v.responsavel_nome)}</b> · <span class="qtd">${atual}</span> contas na base atual</div>
+        <div class="vendor-status" data-status></div>
+      </div>
+      <div class="vendor-actions">
+        <button class="btn gold small" type="button" data-choose>Enviar arquivo</button>
+        <input class="file-input" type="file" accept=".xlsx,.xls" data-file>
+      </div>
+    `;
+    listEl.appendChild(card);
+
+    const fileInput = card.querySelector('[data-file]');
+    const chooseBtn = card.querySelector('[data-choose]');
+    const statusEl = card.querySelector('[data-status]');
+    const qtdEl = card.querySelector('.qtd');
+
+    chooseBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', e=>{ const f = e.target.files[0]; if(f) handleFile(f, v, statusEl, qtdEl); });
+
+    ['dragenter','dragover'].forEach(ev=> card.addEventListener(ev, e=>{ e.preventDefault(); card.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev=> card.addEventListener(ev, e=>{ e.preventDefault(); card.classList.remove('drag'); }));
+    card.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; if(f) handleFile(f, v, statusEl, qtdEl); });
+  });
+
+  function escapeHtml(s){
+    return (s || '').toString()
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setStatus(el, text, cls){
+    el.className = 'vendor-status' + (cls ? (' ' + cls) : '');
+    el.textContent = text;
+  }
+
+  function handleFile(file, vendedor, statusEl, qtdEl){
+    if (typeof XLSX === 'undefined') {
+      setStatus(statusEl, 'Componente de leitura de planilha não carregou. Recarregue a página.', 'err');
+      return;
+    }
+    setStatus(statusEl, 'Lendo arquivo…', 'busy');
+    const reader = new FileReader();
+    reader.onload = async function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+
+        // lê todas as abas do arquivo deste vendedor e junta tudo
+        let rows = [];
+        wb.SheetNames.forEach(sheetName=>{
+          const ws = wb.Sheets[sheetName];
+          const linhas = XLSX.utils.sheet_to_json(ws, {defval:''});
+          linhas.forEach(r=>{
+            const temAlgumDado = Object.values(r).some(v => (v || '').toString().trim() !== '');
+            if (temAlgumDado) rows.push(r);
+          });
+        });
+
+        if (rows.length === 0) {
+          setStatus(statusEl, 'O arquivo não tem nenhuma linha com dados.', 'err');
+          return;
+        }
+
+        // força o responsável desta linha a ser o vendedor do card,
+        // independente do que estiver escrito na planilha
+        rows.forEach(r => { r.Responsavel = vendedor.responsavel_nome; });
+
+        await publicar(rows, vendedor, statusEl, qtdEl, file.name);
+      }catch(err){
+        setStatus(statusEl, 'Não foi possível ler o arquivo: ' + err.message, 'err');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function publicar(rows, vendedor, statusEl, qtdEl, fileName){
+    setStatus(statusEl, 'Publicando ' + rows.length + ' contas…', 'busy');
+
+    // 1) apaga só as contas ATUAIS deste vendedor
+    const { error: delErr } = await supabaseClient
+      .from('contas').delete().eq('responsavel', vendedor.responsavel_nome);
+    if (delErr) { setStatus(statusEl, 'Erro ao limpar base anterior: ' + delErr.message, 'err'); return; }
+
+    // 2) insere as novas, em lotes
+    const registros = rows.map(r => ({ responsavel: vendedor.responsavel_nome, row: r }));
+    const TAM_LOTE = 500;
+    for (let i = 0; i < registros.length; i += TAM_LOTE) {
+      const lote = registros.slice(i, i + TAM_LOTE);
+      const { error: insErr } = await supabaseClient.from('contas').insert(lote);
+      if (insErr) {
+        setStatus(statusEl, 'Erro ao publicar (lote ' + (i / TAM_LOTE + 1) + '): ' + insErr.message, 'err');
+        return;
+      }
+    }
+
+    qtdEl.textContent = rows.length;
+    setStatus(statusEl, '✓ "' + fileName + '" publicado — ' + rows.length + ' contas atualizadas.', 'ok');
+  }
+})();
+</script>
+</body>
+</html>
