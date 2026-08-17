@@ -377,8 +377,6 @@
       <button class="btn ghost" id="btnLogout">Sair</button>
     </div>
     <div class="top-actions" id="topActions" style="display:none;">
-      <button class="btn ghost" id="btnExportXlsx">Exportar Excel filtrado</button>
-      <button class="btn gold" id="btnExport">Exportar CSV filtrado</button>
     </div>
   </div>
 
@@ -612,7 +610,6 @@
             <div id="specialFilterPill" style="display:none; margin-top:8px; align-items:center; gap:8px; flex-wrap:wrap;">
               <span class="pct-badge" id="specialFilterLabel" style="cursor:default; background:var(--blue-dim); color:var(--blue);"></span>
               <button class="clear-link" id="btnClearSpecialFilter">remover</button>
-              <button class="btn gold" id="btnExportFiltered" style="padding:5px 12px; font-size:12px;">Baixar Excel deste filtro</button>
             </div>
           </div>
           <span class="row-count" id="tableCount"></span>
@@ -1640,30 +1637,7 @@
     document.getElementById('footSummary').textContent = `${fmtInt(RAW.length)} contas na planilha original · ${fmtInt(VIEW.length)} após filtros`;
   }
 
-  // ---------- Export ----------
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const headers = ['Conta','Tipo','Status','Cidade','Sistema_Atual','Usuarios','Valor_Contrato','Dias_Sem_Contato','Dias_Desde_Demo'];
-    const lines = [headers.join(';')];
-    VIEW.forEach(r=>{
-      lines.push([
-        '"'+r.Prospect.replace(/"/g,'""')+'"',
-        r.Tipo, r.Cliente, '"'+(r.Cidade||'').replace(/"/g,'""')+'"',
-        '"'+(r.Sistema_Atual||'').replace(/"/g,'""')+'"',
-        r.Usuarios, r.ValorNum.toFixed(2).replace('.',','),
-        r.diasSemContato!=null? r.diasSemContato : '',
-        r.diasDesdeDemo!=null? r.diasDesdeDemo : ''
-      ].join(';'));
-    });
-    const blob = new Blob(["\uFEFF"+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'carteira_filtrada.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  document.getElementById('btnExportXlsx').addEventListener('click', ()=> exportXlsx());
-  document.getElementById('btnExportFiltered').addEventListener('click', ()=> exportXlsx());
+  // ---------- Export (removido do painel do vendedor) ----------
 
   function slugify(str){
     return str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
