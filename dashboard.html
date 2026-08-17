@@ -200,10 +200,7 @@
   .chip[data-status="Cliente"][data-active="1"]{background:var(--green); border-color:var(--green);}
   .chip[data-status="Prospect"][data-active="1"]{background:var(--blue); border-color:var(--blue);}
   .chip[data-status="Ex-Cliente"][data-active="1"]{background:var(--red); border-color:var(--red);}
-  .chip[data-status="Fornecedor"][data-active="1"], .chip[data-route-status="Fornecedor"][data-active="1"]{background:#9b7fc9; border-color:#9b7fc9;}
-  .chip[data-route-status="Cliente"][data-active="1"]{background:var(--green); border-color:var(--green);}
-  .chip[data-route-status="Prospect"][data-active="1"]{background:var(--blue); border-color:var(--blue);}
-  .chip[data-route-status="Ex-Cliente"][data-active="1"]{background:var(--red); border-color:var(--red);}
+  .chip[data-status="Fornecedor"][data-active="1"]{background:#9b7fc9; border-color:#9b7fc9;}
   .chip[data-tipo][data-active="1"]{background:var(--gold); border-color:var(--gold);}
   select, input[type=text], input[type=search], input[type=number]{
     font-family:var(--sans); font-size:13px; color:var(--text);
@@ -625,11 +622,8 @@
           </div>
         </div>
         <div class="card" id="routeCard">
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
-            <button class="chip" data-route-status="Cliente" data-active="1">Cliente</button>
-            <button class="chip" data-route-status="Prospect" data-active="1">Prospect</button>
-            <button class="chip" data-route-status="Ex-Cliente" data-active="1">Ex-Cliente</button>
-            <button class="chip" data-route-status="Fornecedor" data-active="1">Fornecedor</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center;">
+            <span style="font-size:12px; color:var(--text-faint);">Usa os mesmos filtros da barra lateral (status, cidade, sistema, produtos, busca etc.)</span>
             <span class="spacer" style="flex:1;"></span>
             <button class="clear-link" id="btnRouteSelectAll">selecionar visíveis</button>
             <button class="clear-link" id="btnRouteClearAll">limpar seleção</button>
@@ -637,6 +631,7 @@
           <div id="routeAccountList" style="max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px;"></div>
           <div style="display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;">
             <button class="btn gold" id="btnCalcRoute">Calcular melhor roteiro</button>
+            <button class="btn ghost" id="btnClearRoute" style="display:none;">Limpar rota calculada</button>
             <span id="routeSelCount" style="font-size:12px; color:var(--text-faint);"></span>
           </div>
           <div id="routeStatus" style="margin-top:12px; font-size:13px; color:var(--text-dim); display:none;"></div>
@@ -914,7 +909,7 @@
   iniciar();
 
   function processData(rows, fileName){
-    RAW = rows.map(r=>{
+    RAW = rows.map((r, __i)=>{
       const cliente = (r.Cliente || '').toString().trim() || 'Prospect';
       const tipo = (r.Tipo || '').toString().trim() || 'Não informado';
       const ultimaAtiv = parseBRDate(r.Ultima_Atividade) || parseBRDate(r.Ultima_Visita) || parseBRDate(r.Ultima_Demo) || parseBRDate(r.Data_Cadastro);
@@ -932,6 +927,7 @@
       const products = PRODUCT_COLS.reduce((acc,c)=>{ acc[c] = (r[c]||'').toString().trim(); return acc; }, {});
       const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
       return {
+        __rid: __i,
         Responsavel: r.Responsavel || '',
         Prospect: (r.Prospect || '').toString().trim() || '(sem nome)',
         Tipo: tipo,
@@ -1703,32 +1699,21 @@
   }
 
   // ---------- Roteiro de visitas ----------
-  const routeStatusActive = new Set(['Cliente','Prospect','Ex-Cliente','Fornecedor']);
-  const routeSelected = new Set(); // guarda o índice (no RAW) das contas selecionadas
+  const routeSelected = new Set(); // guarda o __rid das contas selecionadas
   const geocodeCache = {}; // evita geocodificar o mesmo endereço duas vezes na sessão
 
-  document.querySelectorAll('#routeCard [data-route-status]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const st = btn.dataset.routeStatus;
-      const active = btn.dataset.active === '1';
-      btn.dataset.active = active ? '0' : '1';
-      if(active) routeStatusActive.delete(st); else routeStatusActive.add(st);
-      renderRouteAccountList();
-    });
-  });
-
   function routeCandidates(){
-    return RAW
-      .map((r,idx)=> ({r, idx}))
-      .filter(({r}) => routeStatusActive.has(r.Cliente) && (r.Endereco||'').toString().trim() !== ''
-        && (!selectedVendedor || r.Responsavel === selectedVendedor));
+    // usa a mesma base já filtrada pela barra lateral (status, cidade, sistema, produtos, busca, vendedor...)
+    return VIEW
+      .filter(r => (r.Endereco||'').toString().trim() !== '')
+      .map(r => ({ r, idx: r.__rid }));
   }
 
   function renderRouteAccountList(){
     const list = document.getElementById('routeAccountList');
     const candidatos = routeCandidates();
     if(candidatos.length === 0){
-      list.innerHTML = '<p class="empty-note" style="margin:6px 0;">Nenhuma conta com endereço cadastrado para os status selecionados.</p>';
+      list.innerHTML = '<p class="empty-note" style="margin:6px 0;">Nenhuma conta com endereço cadastrado para os filtros atuais.</p>';
     } else {
       list.innerHTML = candidatos.map(({r, idx})=>{
         const checked = routeSelected.has(idx) ? 'checked' : '';
@@ -1754,6 +1739,14 @@
       routeSelected.size > 0 ? routeSelected.size + ' conta(s) selecionada(s)' : 'Nenhuma conta selecionada ainda';
   }
 
+  function limparRotaCalculada(){
+    document.getElementById('routeResult').style.display = 'none';
+    document.getElementById('routeOrderedList').innerHTML = '';
+    document.getElementById('btnOpenGoogleMaps').href = '#';
+    document.getElementById('btnClearRoute').style.display = 'none';
+    document.getElementById('routeStatus').style.display = 'none';
+  }
+
   document.getElementById('btnRouteSelectAll').addEventListener('click', ()=>{
     routeCandidates().forEach(({idx})=> routeSelected.add(idx));
     renderRouteAccountList();
@@ -1761,7 +1754,9 @@
   document.getElementById('btnRouteClearAll').addEventListener('click', ()=>{
     routeSelected.clear();
     renderRouteAccountList();
+    limparRotaCalculada();
   });
+  document.getElementById('btnClearRoute').addEventListener('click', limparRotaCalculada);
 
   async function geocodeAddress(endereco){
     if(geocodeCache[endereco]) return geocodeCache[endereco];
@@ -1861,7 +1856,7 @@
     }
 
     statusEl.style.display = 'block';
-    const contas = idxs.map(i => RAW[i]);
+    const contas = idxs.map(rid => RAW.find(r => r.__rid === rid)).filter(Boolean);
     const pontos = [];
     for(let i=0;i<contas.length;i++){
       statusEl.textContent = `Localizando endereços… ${i+1}/${contas.length}`;
@@ -1883,6 +1878,7 @@
 
     statusEl.style.display = 'none';
     resultEl.style.display = 'block';
+    document.getElementById('btnClearRoute').style.display = 'inline-flex';
     document.getElementById('routeOrderedList').innerHTML = rotaFinal.map(p =>
       `<li><b>${esc(p.conta.Prospect)}</b> — ${esc(p.conta.Endereco)}</li>`
     ).join('');
