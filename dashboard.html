@@ -641,10 +641,11 @@
           </div>
           <div id="routeStatus" style="margin-top:12px; font-size:13px; color:var(--text-dim); display:none;"></div>
           <div id="routeResult" style="margin-top:16px; display:none;">
+            <div id="routeSummary" style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:var(--ink-2); border:1px solid var(--line); border-radius:8px; font-size:12.5px; color:var(--text-dim);"></div>
             <ol id="routeOrderedList" style="margin:0 0 14px; padding-left:20px; color:var(--text-dim); font-size:13.5px; line-height:1.9;"></ol>
-            <a class="btn gold" id="btnOpenGoogleMaps" href="#" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Abrir roteiro no Google Maps</a>
+            <a class="btn gold" id="btnOpenGoogleMaps" href="#" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Abrir roteiro completo no Google Maps</a>
             <p style="font-size:11px; color:var(--text-faint); margin-top:10px;">
-              Ordem calculada por distância em linha reta entre os endereços (não considera trânsito ou sentido das ruas).
+              Ordem e distância calculadas em linha reta entre os endereços (não considera trânsito, sentido das ruas ou traçado real). Tempo é uma estimativa aproximada.
               Geocodificação: © colaboradores do OpenStreetMap, via Nominatim.
             </p>
           </div>
@@ -858,7 +859,7 @@
 
     const { data: rows, error: rowsErr } = await supabaseClient
       .from('contas')
-      .select('row, created_at');
+      .select('id, row, created_at');
 
     if (rowsErr) {
       document.getElementById('loadingTitle').textContent = 'Não foi possível carregar os dados';
@@ -878,6 +879,7 @@
     }
 
     const json = (rows || []).map(r => r.row);
+    const contaIds = (rows || []).map(r => r.id);
     if (json.length === 0) {
       document.getElementById('loadingTitle').textContent = 'Nenhuma conta encontrada';
       document.getElementById('loadingMsg').innerHTML =
@@ -887,13 +889,21 @@
       return;
     }
 
-    // gestor: monta o seletor "ver como vendedor X" com base nos responsáveis presentes na base
+    // gestor: monta o seletor "ver como vendedor X" com base nos vendedores CADASTRADOS
+    // (não só nos que já têm dados importados — assim todos aparecem sempre)
     if (perfil.role === 'gestor') {
+      const { data: vendedoresPerfil } = await supabaseClient
+        .from('profiles')
+        .select('responsavel_nome, nome_exibicao')
+        .eq('role', 'vendedor')
+        .order('nome_exibicao');
+
       const select = document.getElementById('vendorFilterSelect');
-      const nomes = [...new Set(json.map(r => (r.Responsavel || '').toString().trim()).filter(Boolean))].sort();
-      nomes.forEach(nome=>{
+      (vendedoresPerfil || []).forEach(v=>{
+        if (!v.responsavel_nome) return;
         const opt = document.createElement('option');
-        opt.value = nome; opt.textContent = nome;
+        opt.value = v.responsavel_nome;
+        opt.textContent = v.nome_exibicao || v.responsavel_nome;
         select.appendChild(opt);
       });
       select.style.display = 'inline-flex';
@@ -906,16 +916,19 @@
         } else {
           badge.style.display = 'none';
         }
+        // troca de vendedor não deve misturar seleção de roteiro entre carteiras diferentes
+        routeSelected.clear();
+        limparRotaCalculada();
         applyFilters();
       });
     }
 
-    processData(json, 'Base atualizada');
+    processData(json, contaIds, 'Base atualizada');
   }
 
   iniciar();
 
-  function processData(rows, fileName){
+  function processData(rows, contaIds, fileName){
     RAW = rows.map((r, __i)=>{
       const cliente = (r.Cliente || '').toString().trim() || 'Prospect';
       const tipo = (r.Tipo || '').toString().trim() || 'Não informado';
@@ -935,6 +948,8 @@
       const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
       return {
         __rid: __i,
+        __contaId: contaIds ? contaIds[__i] : null,
+        __rawRow: r,
         Responsavel: r.Responsavel || '',
         Prospect: (r.Prospect || '').toString().trim() || '(sem nome)',
         Tipo: tipo,
@@ -1752,6 +1767,7 @@
   function limparRotaCalculada(){
     document.getElementById('routeResult').style.display = 'none';
     document.getElementById('routeOrderedList').innerHTML = '';
+    document.getElementById('routeSummary').innerHTML = '';
     document.getElementById('btnOpenGoogleMaps').href = '#';
     document.getElementById('btnClearRoute').style.display = 'none';
     document.getElementById('routeStatus').style.display = 'none';
@@ -1886,12 +1902,34 @@
     const ordem = melhorRota(pontos);
     const rotaFinal = ordem.map(i => pontos[i]);
 
+    // distância total (linha reta) + estimativa de tempo com fator de correção
+    // pra aproximar de distância real de estrada (que é sempre maior que a linha reta)
+    let distTotalKm = 0;
+    for(let i=0;i<rotaFinal.length-1;i++) distTotalKm += haversine(rotaFinal[i], rotaFinal[i+1]);
+    const FATOR_CORRECAO_ESTRADA = 1.35;
+    const distEstimadaKm = distTotalKm * FATOR_CORRECAO_ESTRADA;
+    const VELOCIDADE_MEDIA_KMH = 28; // trânsito urbano com paradas
+    const tempoEstimadoMin = Math.round((distEstimadaKm / VELOCIDADE_MEDIA_KMH) * 60);
+
     statusEl.style.display = 'none';
     resultEl.style.display = 'block';
     document.getElementById('btnClearRoute').style.display = 'inline-flex';
-    document.getElementById('routeOrderedList').innerHTML = rotaFinal.map(p =>
-      `<li><b>${esc(p.conta.Prospect)}</b> — ${esc(p.conta.Endereco)}</li>`
-    ).join('');
+
+    document.getElementById('routeSummary').innerHTML = `
+      <span><b style="color:var(--text);">${rotaFinal.length}</b> paradas</span>
+      <span><b style="color:var(--text);">~${distEstimadaKm.toFixed(0)} km</b> estimados</span>
+      <span><b style="color:var(--text);">~${tempoEstimadoMin} min</b> de deslocamento estimado</span>
+    `;
+
+    document.getElementById('routeOrderedList').innerHTML = rotaFinal.map(p=>{
+      const c = p.conta;
+      const linkMaps = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng + '&travelmode=driving';
+      return `<li>
+        <b>${esc(c.Prospect)}</b> — ${esc(c.Endereco)}
+        <br>
+        <a href="${linkMaps}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--gold); text-decoration:none;">Abrir esta parada no Maps</a>
+      </li>`;
+    }).join('');
 
     const destino = rotaFinal[rotaFinal.length-1];
     const waypoints = rotaFinal.slice(0, -1).map(p => p.lat+','+p.lng).join('|');
@@ -1901,6 +1939,7 @@
       '&travelmode=driving';
     document.getElementById('btnOpenGoogleMaps').href = url;
   });
+
 
   // ---------- Table ----------
   document.querySelectorAll('th button[data-sort]').forEach(btn=>{
