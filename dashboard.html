@@ -367,6 +367,9 @@
     header.top{padding:16px 18px;}
     h1{font-size:19px;}
     #vendorFilterSelect{width:100%;}
+    /* No celular: mostra só os filtros e o roteiro de visitas, escondendo
+       KPIs, gráficos, alertas e a tabela — foco no trabalho de campo. */
+    .desktop-only-section{display:none;}
   }
 
   footer.foot{margin-top:40px; padding-top:16px; border-top:1px solid var(--line); color:var(--text-faint); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
@@ -465,6 +468,7 @@
 
       <div class="content">
 
+        <div class="desktop-only-section">
         <div class="ledger-strip" id="kpiStrip"></div>
 
         <div class="section-head">
@@ -614,6 +618,7 @@
         <div class="card">
           <div class="chart-wrap"><canvas id="chartCoorte"></canvas></div>
         </div>
+        </div><!-- /desktop-only-section -->
 
         <div class="section-head">
           <div>
@@ -645,6 +650,7 @@
           </div>
         </div>
 
+        <div class="desktop-only-section">
         <div class="section-head">
           <div>
             <h3>Contas a priorizar <span class="n" id="alertN"></span></h3>
@@ -685,6 +691,7 @@
             <tbody id="tableBody"></tbody>
           </table>
         </div>
+        </div><!-- /desktop-only-section -->
 
         <footer class="foot">
           <span id="footSummary"></span>
@@ -1216,7 +1223,8 @@
     applyFilters();
   });
   function setStatusChips(statuses){
-    activeStatus = new Set(statuses);
+    activeStatus.clear();
+    statuses.forEach(s => activeStatus.add(s));
     document.querySelectorAll('#chipsStatus .chip').forEach(c=>{
       c.dataset.active = statuses.includes(c.dataset.status) ? '1' : '0';
     });
@@ -1245,8 +1253,10 @@
   });
   document.getElementById('btnClearSpecialFilter').addEventListener('click', clearDrill);
   document.getElementById('btnClear').addEventListener('click', ()=>{
-    activeStatus = new Set(RAW.map(r=>r.Cliente));
-    activeTipo = new Set(RAW.map(r=>r.Tipo));
+    activeStatus.clear();
+    RAW.forEach(r => activeStatus.add(r.Cliente));
+    activeTipo.clear();
+    RAW.forEach(r => activeTipo.add(r.Tipo));
     minDias = 0;
     selectedCidade = '';
     selectedSistema = '';
