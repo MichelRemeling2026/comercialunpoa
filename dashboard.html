@@ -200,6 +200,10 @@
   .chip[data-status="Cliente"][data-active="1"]{background:var(--green); border-color:var(--green);}
   .chip[data-status="Prospect"][data-active="1"]{background:var(--blue); border-color:var(--blue);}
   .chip[data-status="Ex-Cliente"][data-active="1"]{background:var(--red); border-color:var(--red);}
+  .chip[data-status="Fornecedor"][data-active="1"], .chip[data-route-status="Fornecedor"][data-active="1"]{background:#9b7fc9; border-color:#9b7fc9;}
+  .chip[data-route-status="Cliente"][data-active="1"]{background:var(--green); border-color:var(--green);}
+  .chip[data-route-status="Prospect"][data-active="1"]{background:var(--blue); border-color:var(--blue);}
+  .chip[data-route-status="Ex-Cliente"][data-active="1"]{background:var(--red); border-color:var(--red);}
   .chip[data-tipo][data-active="1"]{background:var(--gold); border-color:var(--gold);}
   select, input[type=text], input[type=search], input[type=number]{
     font-family:var(--sans); font-size:13px; color:var(--text);
@@ -319,6 +323,7 @@
   .stamp.Cliente{color:var(--green);}
   .stamp.Prospect{color:var(--blue);}
   .stamp.Ex-Cliente{color:var(--red); transform:rotate(1.2deg);}
+  .stamp.Fornecedor{color:#9b7fc9;}
 
   /* ---------- Alert list ---------- */
   .alert-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column;}
@@ -360,18 +365,38 @@
   tbody td.name a:hover{color:var(--gold); text-decoration:underline;}
   .row-count{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
 
+  @media (max-width: 640px){
+    table{min-width:760px;} /* força rolagem horizontal em vez de espremer colunas */
+    header.top{padding:16px 18px;}
+    h1{font-size:19px;}
+    #vendorFilterSelect{width:100%;}
+  }
+
   footer.foot{margin-top:40px; padding-top:16px; border-top:1px solid var(--line); color:var(--text-faint); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  #btnScrollTop{
+    position:fixed; bottom:24px; right:24px; width:44px; height:44px; border-radius:50%;
+    background:var(--gold); color:#1a1406; border:none; font-size:18px; font-weight:700;
+    cursor:pointer; display:none; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.35); z-index:500; transition:transform .15s, opacity .15s;
+  }
+  #btnScrollTop:hover{ transform:translateY(-2px); background:#dab63a; }
 </style>
 </head>
 <body>
+
+<button id="btnScrollTop" title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
 
 <header class="top">
   <div class="brand">
     <span class="eyebrow">Painel Comercial · Livro de Contas</span>
     <h1>Carteira &amp; Prospecção</h1>
     <span class="sub" id="fileNote">Nenhuma planilha carregada</span>
+    <span class="sub" id="vendorViewBadge" style="display:none; color:var(--gold); font-weight:600;"></span>
   </div>
   <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <select id="vendorFilterSelect" style="display:none; background:var(--paper); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit;">
+      <option value="">Todos os vendedores</option>
+    </select>
     <div class="top-actions" id="topActionsAlways" style="display:flex;">
       <a class="btn ghost" id="linkAdmin" href="admin.html" style="text-decoration:none; display:none; align-items:center;">Importar planilha</a>
       <button class="btn ghost" id="btnLogout">Sair</button>
@@ -595,6 +620,38 @@
 
         <div class="section-head">
           <div>
+            <h3>Roteiro de visitas</h3>
+            <p>Selecione as contas que vai visitar e eu calculo a ordem mais eficiente entre elas.</p>
+          </div>
+        </div>
+        <div class="card" id="routeCard">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+            <button class="chip" data-route-status="Cliente" data-active="1">Cliente</button>
+            <button class="chip" data-route-status="Prospect" data-active="1">Prospect</button>
+            <button class="chip" data-route-status="Ex-Cliente" data-active="1">Ex-Cliente</button>
+            <button class="chip" data-route-status="Fornecedor" data-active="1">Fornecedor</button>
+            <span class="spacer" style="flex:1;"></span>
+            <button class="clear-link" id="btnRouteSelectAll">selecionar visíveis</button>
+            <button class="clear-link" id="btnRouteClearAll">limpar seleção</button>
+          </div>
+          <div id="routeAccountList" style="max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px;"></div>
+          <div style="display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;">
+            <button class="btn gold" id="btnCalcRoute">Calcular melhor roteiro</button>
+            <span id="routeSelCount" style="font-size:12px; color:var(--text-faint);"></span>
+          </div>
+          <div id="routeStatus" style="margin-top:12px; font-size:13px; color:var(--text-dim); display:none;"></div>
+          <div id="routeResult" style="margin-top:16px; display:none;">
+            <ol id="routeOrderedList" style="margin:0 0 14px; padding-left:20px; color:var(--text-dim); font-size:13.5px; line-height:1.9;"></ol>
+            <a class="btn gold" id="btnOpenGoogleMaps" href="#" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Abrir roteiro no Google Maps</a>
+            <p style="font-size:11px; color:var(--text-faint); margin-top:10px;">
+              Ordem calculada por distância em linha reta entre os endereços (não considera trânsito ou sentido das ruas).
+              Geocodificação: © colaboradores do OpenStreetMap, via Nominatim.
+            </p>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
             <h3>Contas a priorizar <span class="n" id="alertN"></span></h3>
             <p>Maior valor de contrato, sem contato recente — candidatas a uma ligação esta semana.</p>
           </div>
@@ -626,6 +683,7 @@
                 <th><button data-sort="Usuarios">Usuários <span class="arrow"></span></button></th>
                 <th><button data-sort="ValorNum">Valor contrato <span class="arrow"></span></button></th>
                 <th><button data-sort="diasSemContato">Dias sem contato <span class="arrow"></span></button></th>
+                <th><button data-sort="diasDesdeVisita">Última visita <span class="arrow"></span></button></th>
                 <th><button data-sort="diasDesdeDemo">Última demo <span class="arrow"></span></button></th>
               </tr>
             </thead>
@@ -635,6 +693,7 @@
 
         <footer class="foot">
           <span id="footSummary"></span>
+          <span id="lastUpdateNote"></span>
           <span id="footUser"></span>
         </footer>
 
@@ -693,6 +752,7 @@
   let minDiasDemo = 0;
   let maxDiasPossible = 365;
   let selectedCidade = '';
+  let selectedVendedor = ''; // usado só pelo gestor, filtra por Responsavel
   let selectedSistema = '';
   let usuariosMin = null;
   let usuariosMax = null;
@@ -700,8 +760,8 @@
   let selectedCalDate = null;
   let drillFilter = null; // { predicate, label }
 
-  const STATUS_ORDER = ['Cliente','Prospect','Ex-Cliente'];
-  const STATUS_COLOR = { 'Cliente':'#4c9a6a', 'Prospect':'#5b7fa6', 'Ex-Cliente':'#c1543d' };
+  const STATUS_ORDER = ['Cliente','Prospect','Ex-Cliente','Fornecedor'];
+  const STATUS_COLOR = { 'Cliente':'#4c9a6a', 'Prospect':'#5b7fa6', 'Ex-Cliente':'#c1543d', 'Fornecedor':'#9b7fc9' };
   const PRODUCT_COLS = ['Web','Processos','Messenger','Kolossus','Contabilidade_Digital'];
   const PRODUCT_LABELS = { Web:'Web', Processos:'Processos', Messenger:'MSG', Kolossus:'Kolossus', Contabilidade_Digital:'Cont. Digital' };
   PRODUCT_COLS.forEach(c=> productActive[c] = new Set());
@@ -755,6 +815,15 @@
     return byDate;
   }
 
+  // ---------- botão voltar ao topo ----------
+  const btnTop = document.getElementById('btnScrollTop');
+  window.addEventListener('scroll', ()=>{
+    btnTop.style.display = window.scrollY > 400 ? 'flex' : 'none';
+  });
+  btnTop.addEventListener('click', ()=>{
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
   // ---------- autenticação + carregamento via Supabase ----------
   document.getElementById('btnLogout').addEventListener('click', async ()=>{
     await supabaseClient.auth.signOut();
@@ -787,12 +856,23 @@
 
     const { data: rows, error: rowsErr } = await supabaseClient
       .from('contas')
-      .select('row');
+      .select('row, created_at');
 
     if (rowsErr) {
       document.getElementById('loadingTitle').textContent = 'Não foi possível carregar os dados';
       document.getElementById('loadingMsg').textContent = rowsErr.message;
       return;
+    }
+
+    // mostra quando a base foi importada por último
+    if (rows && rows.length > 0) {
+      const maisRecente = rows.reduce((max, r) => {
+        const t = new Date(r.created_at).getTime();
+        return t > max ? t : max;
+      }, 0);
+      const dt = new Date(maisRecente);
+      document.getElementById('lastUpdateNote').textContent =
+        'Última atualização: ' + dt.toLocaleDateString('pt-BR') + ' às ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
     }
 
     const json = (rows || []).map(r => r.row);
@@ -803,6 +883,29 @@
           ? 'Clique em <b>"Importar planilha"</b> no canto superior direito para carregar a base.'
           : 'Ainda não há contas atribuídas a você nesta base. Fale com o gestor.';
       return;
+    }
+
+    // gestor: monta o seletor "ver como vendedor X" com base nos responsáveis presentes na base
+    if (perfil.role === 'gestor') {
+      const select = document.getElementById('vendorFilterSelect');
+      const nomes = [...new Set(json.map(r => (r.Responsavel || '').toString().trim()).filter(Boolean))].sort();
+      nomes.forEach(nome=>{
+        const opt = document.createElement('option');
+        opt.value = nome; opt.textContent = nome;
+        select.appendChild(opt);
+      });
+      select.style.display = 'inline-flex';
+      select.addEventListener('change', ()=>{
+        selectedVendedor = select.value;
+        const badge = document.getElementById('vendorViewBadge');
+        if (selectedVendedor) {
+          badge.textContent = '👁 Visualizando: ' + selectedVendedor;
+          badge.style.display = 'inline';
+        } else {
+          badge.style.display = 'none';
+        }
+        applyFilters();
+      });
     }
 
     processData(json, 'Base atualizada');
@@ -824,6 +927,8 @@
       const diasComSistemaAtual = dataSistemaAtual ? daysBetween(new Date(), dataSistemaAtual) : null;
       const dataDemo = parseBRDate(r.Ultima_Demo);
       const diasDesdeDemo = dataDemo ? daysBetween(new Date(), dataDemo) : null;
+      const dataVisita = parseBRDate(r.Ultima_Visita);
+      const diasDesdeVisita = dataVisita ? daysBetween(new Date(), dataVisita) : null;
       const products = PRODUCT_COLS.reduce((acc,c)=>{ acc[c] = (r[c]||'').toString().trim(); return acc; }, {});
       const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
       return {
@@ -846,6 +951,8 @@
         diasComSistemaAtual: diasComSistemaAtual,
         dataDemo: dataDemo,
         diasDesdeDemo: diasDesdeDemo,
+        dataVisita: dataVisita,
+        diasDesdeVisita: diasDesdeVisita,
         products: products,
         numProdutosSim: numProdutosSim
       };
@@ -1167,6 +1274,7 @@
   function applyFilters(){
     const q = document.getElementById('searchBox').value.trim().toLowerCase();
     VIEW = RAW.filter(r=>{
+      if(selectedVendedor && r.Responsavel !== selectedVendedor) return false;
       if(!activeStatus.has(r.Cliente)) return false;
       if(!activeTipo.has(r.Tipo)) return false;
       if(minDias > 0 && (r.diasSemContato==null || r.diasSemContato < minDias)) return false;
@@ -1199,6 +1307,7 @@
     renderCrossSellList();
     renderDemoList();
     renderTable();
+    renderRouteAccountList();
   }
 
   // ---------- KPIs ----------
@@ -1574,7 +1683,7 @@
   // ---------- Alerts ----------
   function renderAlerts(){
     const candidates = VIEW.filter(r=> r.Cliente!=='Ex-Cliente' && r.diasSemContato!=null && r.diasSemContato>60)
-      .sort((a,b)=> (b.ValorNum - a.ValorNum) || (b.diasSemContato - a.diasSemContato))
+      .sort((a,b)=> ((b.diasDesdeVisita||0) - (a.diasDesdeVisita||0)) || (b.ValorNum - a.ValorNum) || (b.diasSemContato - a.diasSemContato))
       .slice(0,15);
     document.getElementById('alertN').textContent = '('+fmtInt(candidates.length)+')';
     const list = document.getElementById('alertList');
@@ -1584,13 +1693,208 @@
     }
     list.innerHTML = candidates.map(r=>{
       const link = r.SGD ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>` : `<span>${esc(r.Prospect)}</span>`;
+      const visitaTxt = r.diasDesdeVisita!=null ? ' · última visita há '+r.diasDesdeVisita+'d' : '';
       return `<li>
         <span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span>
-        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.ValorNum? ' · '+fmtBRL(r.ValorNum):''}</span></span>
+        <span class="name">${link}<span class="meta">${esc(r.Tipo)}${r.ValorNum? ' · '+fmtBRL(r.ValorNum):''}${visitaTxt}</span></span>
         <span class="days">${r.diasSemContato}d</span>
       </li>`;
     }).join('');
   }
+
+  // ---------- Roteiro de visitas ----------
+  const routeStatusActive = new Set(['Cliente','Prospect','Ex-Cliente','Fornecedor']);
+  const routeSelected = new Set(); // guarda o índice (no RAW) das contas selecionadas
+  const geocodeCache = {}; // evita geocodificar o mesmo endereço duas vezes na sessão
+
+  document.querySelectorAll('#routeCard [data-route-status]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const st = btn.dataset.routeStatus;
+      const active = btn.dataset.active === '1';
+      btn.dataset.active = active ? '0' : '1';
+      if(active) routeStatusActive.delete(st); else routeStatusActive.add(st);
+      renderRouteAccountList();
+    });
+  });
+
+  function routeCandidates(){
+    return RAW
+      .map((r,idx)=> ({r, idx}))
+      .filter(({r}) => routeStatusActive.has(r.Cliente) && (r.Endereco||'').toString().trim() !== ''
+        && (!selectedVendedor || r.Responsavel === selectedVendedor));
+  }
+
+  function renderRouteAccountList(){
+    const list = document.getElementById('routeAccountList');
+    const candidatos = routeCandidates();
+    if(candidatos.length === 0){
+      list.innerHTML = '<p class="empty-note" style="margin:6px 0;">Nenhuma conta com endereço cadastrado para os status selecionados.</p>';
+    } else {
+      list.innerHTML = candidatos.map(({r, idx})=>{
+        const checked = routeSelected.has(idx) ? 'checked' : '';
+        return `<label style="display:flex; align-items:center; gap:8px; padding:5px 4px; font-size:12.8px; color:var(--text-dim); cursor:pointer;">
+          <input type="checkbox" data-route-idx="${idx}" ${checked}>
+          <span class="stamp ${r.Cliente}" style="flex-shrink:0;">${esc(r.Cliente)}</span>
+          <span style="flex:1;">${esc(r.Prospect)} <span style="color:var(--text-faint);">— ${esc(r.Endereco)}</span></span>
+        </label>`;
+      }).join('');
+      list.querySelectorAll('input[data-route-idx]').forEach(cb=>{
+        cb.addEventListener('change', ()=>{
+          const idx = Number(cb.dataset.routeIdx);
+          if(cb.checked) routeSelected.add(idx); else routeSelected.delete(idx);
+          updateRouteSelCount();
+        });
+      });
+    }
+    updateRouteSelCount();
+  }
+
+  function updateRouteSelCount(){
+    document.getElementById('routeSelCount').textContent =
+      routeSelected.size > 0 ? routeSelected.size + ' conta(s) selecionada(s)' : 'Nenhuma conta selecionada ainda';
+  }
+
+  document.getElementById('btnRouteSelectAll').addEventListener('click', ()=>{
+    routeCandidates().forEach(({idx})=> routeSelected.add(idx));
+    renderRouteAccountList();
+  });
+  document.getElementById('btnRouteClearAll').addEventListener('click', ()=>{
+    routeSelected.clear();
+    renderRouteAccountList();
+  });
+
+  async function geocodeAddress(endereco){
+    if(geocodeCache[endereco]) return geocodeCache[endereco];
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(endereco);
+    const resp = await fetch(url, { headers: { 'Accept':'application/json' } });
+    if(!resp.ok) throw new Error('Falha ao consultar geocodificação');
+    const data = await resp.json();
+    if(!data || data.length === 0) return null;
+    const ponto = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    geocodeCache[endereco] = ponto;
+    return ponto;
+  }
+
+  function haversine(a, b){
+    const R = 6371;
+    const dLat = (b.lat-a.lat) * Math.PI/180;
+    const dLng = (b.lng-a.lng) * Math.PI/180;
+    const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+
+  // Nearest-neighbor a partir de cada ponto de início possível + refinamento 2-opt.
+  // Sem ponto de partida fixo — escolhe a sequência de menor distância total.
+  function melhorRota(pontos){
+    if(pontos.length <= 2) return pontos.map((_,i)=>i);
+
+    function nearestNeighborFrom(startIdx){
+      const visited = new Set([startIdx]);
+      const order = [startIdx];
+      while(order.length < pontos.length){
+        const last = order[order.length-1];
+        let melhor = -1, melhorDist = Infinity;
+        for(let i=0;i<pontos.length;i++){
+          if(visited.has(i)) continue;
+          const d = haversine(pontos[last], pontos[i]);
+          if(d < melhorDist){ melhorDist = d; melhor = i; }
+        }
+        order.push(melhor);
+        visited.add(melhor);
+      }
+      return order;
+    }
+
+    function distanciaTotal(order){
+      let total = 0;
+      for(let i=0;i<order.length-1;i++) total += haversine(pontos[order[i]], pontos[order[i+1]]);
+      return total;
+    }
+
+    function twoOpt(order){
+      let melhorOrder = order.slice();
+      let melhorDist = distanciaTotal(melhorOrder);
+      let melhorou = true;
+      let iter = 0;
+      while(melhorou && iter < 60){
+        melhorou = false; iter++;
+        for(let i=1;i<melhorOrder.length-1;i++){
+          for(let j=i+1;j<melhorOrder.length;j++){
+            const novo = melhorOrder.slice(0,i).concat(melhorOrder.slice(i,j+1).reverse(), melhorOrder.slice(j+1));
+            const novaDist = distanciaTotal(novo);
+            if(novaDist < melhorDist - 1e-9){
+              melhorDist = novaDist; melhorOrder = novo; melhorou = true;
+            }
+          }
+        }
+      }
+      return { order: melhorOrder, dist: melhorDist };
+    }
+
+    // testa começar por alguns pontos diferentes (não só o [0]) e fica com o melhor resultado
+    const tentativas = Math.min(pontos.length, 5);
+    let melhorGlobal = null;
+    for(let t=0;t<tentativas;t++){
+      const start = Math.floor(t * pontos.length / tentativas);
+      const nn = nearestNeighborFrom(start);
+      const refinado = twoOpt(nn);
+      if(!melhorGlobal || refinado.dist < melhorGlobal.dist) melhorGlobal = refinado;
+    }
+    return melhorGlobal.order;
+  }
+
+  document.getElementById('btnCalcRoute').addEventListener('click', async ()=>{
+    const idxs = [...routeSelected];
+    const statusEl = document.getElementById('routeStatus');
+    const resultEl = document.getElementById('routeResult');
+    resultEl.style.display = 'none';
+
+    if(idxs.length < 2){
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Selecione ao menos 2 contas para calcular um roteiro.';
+      return;
+    }
+    if(idxs.length > 23){
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Selecione no máximo 23 contas por roteiro (limite do link do Google Maps).';
+      return;
+    }
+
+    statusEl.style.display = 'block';
+    const contas = idxs.map(i => RAW[i]);
+    const pontos = [];
+    for(let i=0;i<contas.length;i++){
+      statusEl.textContent = `Localizando endereços… ${i+1}/${contas.length}`;
+      try{
+        const p = await geocodeAddress(contas[i].Endereco);
+        if(p) pontos.push({ ...p, conta: contas[i] });
+      }catch(err){ /* segue tentando os demais */ }
+      await new Promise(res=> setTimeout(res, 1100)); // respeita o limite de 1 req/seg do Nominatim
+    }
+
+    if(pontos.length < 2){
+      statusEl.textContent = 'Não foi possível localizar coordenadas suficientes para esses endereços. Verifique se os endereços têm cidade e estado.';
+      return;
+    }
+
+    statusEl.textContent = 'Calculando a ordem mais eficiente entre ' + pontos.length + ' pontos…';
+    const ordem = melhorRota(pontos);
+    const rotaFinal = ordem.map(i => pontos[i]);
+
+    statusEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    document.getElementById('routeOrderedList').innerHTML = rotaFinal.map(p =>
+      `<li><b>${esc(p.conta.Prospect)}</b> — ${esc(p.conta.Endereco)}</li>`
+    ).join('');
+
+    const destino = rotaFinal[rotaFinal.length-1];
+    const waypoints = rotaFinal.slice(0, -1).map(p => p.lat+','+p.lng).join('|');
+    const url = 'https://www.google.com/maps/dir/?api=1&destination=' +
+      destino.lat + ',' + destino.lng +
+      (waypoints ? '&waypoints=' + encodeURIComponent(waypoints) : '') +
+      '&travelmode=driving';
+    document.getElementById('btnOpenGoogleMaps').href = url;
+  });
 
   // ---------- Table ----------
   document.querySelectorAll('th button[data-sort]').forEach(btn=>{
@@ -1627,12 +1931,13 @@
         <td class="num">${r.Usuarios||'—'}</td>
         <td class="num">${r.ValorNum? fmtBRL(r.ValorNum) : '—'}</td>
         <td class="num">${r.diasSemContato!=null ? r.diasSemContato+'d' : '—'}</td>
+        <td class="num">${r.diasDesdeVisita!=null ? r.diasDesdeVisita+'d' : '—'}</td>
         <td class="num">${r.diasDesdeDemo!=null ? r.diasDesdeDemo+'d' : '—'}</td>
       </tr>`;
     }).join('');
-    document.getElementById('tableBody').innerHTML = frag || '<tr><td colspan="9" class="empty-note">Nenhuma conta encontrada com os filtros atuais.</td></tr>';
+    document.getElementById('tableBody').innerHTML = frag || '<tr><td colspan="10" class="empty-note">Nenhuma conta encontrada com os filtros atuais.</td></tr>';
     if(rows.length>500){
-      document.getElementById('tableBody').insertAdjacentHTML('beforeend', `<tr><td colspan="9" class="empty-note">Mostrando as 500 primeiras de ${fmtInt(rows.length)} contas — refine os filtros ou exporte para ver todas.</td></tr>`);
+      document.getElementById('tableBody').insertAdjacentHTML('beforeend', `<tr><td colspan="10" class="empty-note">Mostrando as 500 primeiras de ${fmtInt(rows.length)} contas — refine os filtros ou exporte para ver todas.</td></tr>`);
     }
     document.getElementById('footSummary').textContent = `${fmtInt(RAW.length)} contas na planilha original · ${fmtInt(VIEW.length)} após filtros`;
   }
