@@ -97,7 +97,7 @@
   .btn.ghost{background:transparent;}
   .file-input{display:none;}
 
-  main{max-width:1360px; margin:0 auto; padding:0 32px 60px;}
+  main{max-width:2200px; margin:0 auto; padding:0 clamp(16px,2.5vw,48px) 60px;}
 
   /* ---------- Upload / empty state ---------- */
   #uploadScreen{
@@ -217,7 +217,7 @@
   .clear-link:hover{color:var(--text);}
 
   /* ---------- Sidebar layout ---------- */
-  .layout{display:grid; grid-template-columns:250px 1fr; gap:22px; align-items:start; margin-top:26px;}
+  .layout{display:grid; grid-template-columns:270px 1fr; gap:26px; align-items:start; margin-top:26px;}
   .sidebar{position:sticky; top:16px; display:flex; flex-direction:column; gap:12px; max-height:calc(100vh - 32px); overflow-y:auto; padding-bottom:8px;}
   .side-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--ink-2); padding:12px 13px;}
   .side-card .fl{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); display:block; margin-bottom:8px;}
@@ -307,8 +307,20 @@
   .sim-search-results .sim-res-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .sim-search-results .sim-res-empty{padding:12px; font-size:12.5px; color:var(--text-faint);}
   .sim-panel{margin-top:18px; padding-top:16px; border-top:1px solid var(--line-soft);}
-  .sim-panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:16px;}
+  .sim-panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:14px;}
   .sim-account-name{font-family:var(--serif); font-size:19px; font-weight:600;}
+  .sim-account-name a{color:var(--text); text-decoration:none; border-bottom:1px dashed var(--text-faint);}
+  .sim-account-name a:hover{color:var(--gold); border-color:var(--gold);}
+  .sim-current-box{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;
+    padding:14px 16px; margin-bottom:18px; border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--paper-raised);
+  }
+  .sim-current-item .sim-current-label{font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-faint); font-weight:600;}
+  .sim-current-item .sim-current-value{font-family:var(--mono); font-size:15px; color:var(--text); margin-top:2px;}
+  .sim-current-item .sim-current-sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
+  .sim-current-item .sim-current-value.below{color:var(--red);}
+  .sim-current-item .sim-current-value.ontable{color:var(--green);}
   .sim-account-meta{font-size:12px; color:var(--text-dim); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
   .sim-row{display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap;}
   .sim-field{flex:1; min-width:200px;}
@@ -535,6 +547,8 @@
               </div>
               <button type="button" class="clear-link" id="simClear">trocar conta</button>
             </div>
+
+            <div class="sim-current-box" id="simCurrentBox"></div>
 
             <div class="sim-row">
               <div class="sim-field">
@@ -2300,12 +2314,61 @@
     document.getElementById('simNote').textContent = notas.join(' ');
   }
 
+  function simBuildCurrentBox(r, pacoteAtualKey){
+    const produtosAtuais = PRODUCT_COLS.filter(c => r.products[c] === 'Sim').map(c => PRODUCT_LABELS[c] || c);
+    const usuariosAtuais = r.Usuarios || 0;
+    const pagaHoje = r.ValorNum || 0;
+
+    const items = [
+      `<div class="sim-current-item">
+        <div class="sim-current-label">Usuários (contrato atual)</div>
+        <div class="sim-current-value">${usuariosAtuais || '—'}</div>
+      </div>`,
+      `<div class="sim-current-item">
+        <div class="sim-current-label">Paga hoje</div>
+        <div class="sim-current-value">${pagaHoje ? fmtBRL(pagaHoje) : '—'}</div>
+      </div>`,
+      `<div class="sim-current-item">
+        <div class="sim-current-label">Produtos que já possui</div>
+        <div class="sim-current-value" style="font-family:var(--sans); font-size:13px;">${produtosAtuais.length ? esc(produtosAtuais.join(', ')) : 'nenhum'}</div>
+      </div>`,
+    ];
+
+    // comparação com a tabela, quando dá pra saber o pacote atual, o nº de usuários e o valor pago
+    if(pacoteAtualKey && usuariosAtuais && pagaHoje){
+      const tabelaVal = priceVal(PRICE_BASE[pacoteAtualKey], usuariosAtuais);
+      if(tabelaVal != null){
+        const diff = tabelaVal - pagaHoje;
+        const pct = tabelaVal ? (diff/tabelaVal*100) : 0;
+        let cls = '', texto;
+        if(diff > 0.5){
+          cls = 'below';
+          texto = `${fmtBRL(diff)} abaixo (${pct.toFixed(1)}%)`;
+        } else if(diff < -0.5){
+          cls = 'ontable';
+          texto = `${fmtBRL(-diff)} acima da tabela`;
+        } else {
+          cls = 'ontable';
+          texto = 'na tabela';
+        }
+        items.push(`<div class="sim-current-item">
+          <div class="sim-current-label">Valor de tabela hoje (${esc(PRICE_BASE_META[pacoteAtualKey].label)}, ${usuariosAtuais}u)</div>
+          <div class="sim-current-value ${cls}">${fmtBRL(tabelaVal)}</div>
+          <div class="sim-current-sub">${texto}</div>
+        </div>`);
+      }
+    }
+    return items.join('');
+  }
+
   function simSelectAccount(r){
     simSelected = r;
     document.getElementById('simSearchResults').style.display = 'none';
     document.getElementById('simSearchBox').value = '';
     document.getElementById('simPanel').style.display = '';
-    document.getElementById('simAccountName').textContent = r.Prospect;
+    document.getElementById('simAccountName').innerHTML = r.SGD
+      ? `<a href="${esc(r.SGD)}" target="_blank" rel="noopener">${esc(r.Prospect)}</a>`
+      : esc(r.Prospect);
     const metaParts = [
       `<span class="stamp ${r.Cliente}" style="transform:none; padding:2px 7px;">${esc(r.Cliente)}</span>`,
       r.Tipo && r.Tipo!=='Não informado' ? esc(r.Tipo) : null,
@@ -2314,8 +2377,15 @@
     ].filter(Boolean);
     document.getElementById('simAccountMeta').innerHTML = metaParts.join(' &middot; ');
     document.getElementById('simUsuariosInput').value = r.Usuarios || 1;
-    const pacoteKey = normalizePacoteKey(r.PacoteAtual) || 'PRO';
-    document.getElementById('simPacoteSelect').value = pacoteKey;
+
+    // só assume o pacote atual como padrão quando a conta já é cliente (prospect/ex-cliente não tem pacote nosso vigente)
+    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual);
+    const pacoteDefault = (r.Cliente === 'Cliente' && pacoteAtualKey) ? pacoteAtualKey : 'PRO';
+    document.getElementById('simPacoteSelect').value = pacoteDefault;
+
+    document.getElementById('simCurrentBox').innerHTML =
+      simBuildCurrentBox(r, r.Cliente === 'Cliente' ? pacoteAtualKey : null);
+
     simRenderAddons();
     simCalc();
   }
