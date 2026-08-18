@@ -2661,10 +2661,17 @@
   }
 
   if(document.getElementById('simSearchBox')){
-    fillPacoteSelect('simPacoteSelect');
+    fillPacoteSelect('simPacoteSelect', {incluirVazio:true});
     fillPacoteSelect('simPacoteAtualSelect', {incluirVazio:true});
     document.getElementById('simSearchBox').addEventListener('input', (e)=> simDoSearch(e.target.value));
-    document.getElementById('simPacoteAtualSelect').addEventListener('change', simUpdateTabelaCompare);
+    document.getElementById('simPacoteAtualSelect').addEventListener('change', (e)=>{
+      simUpdateTabelaCompare();
+      // ao definir/trocar o pacote atual, o "pacote a simular" acompanha automaticamente —
+      // continua um select normal, então o vendedor pode mudar na hora se quiser oferecer outra coisa
+      document.getElementById('simPacoteSelect').value = e.target.value;
+      simRenderAddons();
+      simCalc();
+    });
     document.getElementById('simPacoteSelect').addEventListener('change', ()=>{ simRenderAddons(); simCalc(); });
     document.getElementById('simUsuariosInput').addEventListener('input', ()=>{ simRenderAddons(); simCalc(); });
     document.getElementById('simClear').addEventListener('click', ()=>{
