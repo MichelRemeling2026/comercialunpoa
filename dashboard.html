@@ -289,6 +289,51 @@
   button.pct-badge{appearance:none; border:none; cursor:pointer; font:inherit; transition:filter .12s;}
   button.pct-badge:hover{filter:brightness(1.2);}
 
+  /* ---------- Simulador de oportunidade ---------- */
+  .sim-card{position:relative;}
+  .sim-search-row{position:relative;}
+  #simSearchBox{width:100%; max-width:420px;}
+  .sim-search-results{
+    position:absolute; top:calc(100% + 4px); left:0; width:100%; max-width:420px; z-index:20;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius-sm);
+    max-height:280px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  .sim-search-results .sim-res-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--line-soft); font-size:13px;
+  }
+  .sim-search-results .sim-res-item:last-child{border-bottom:none;}
+  .sim-search-results .sim-res-item:hover{background:var(--paper);}
+  .sim-search-results .sim-res-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .sim-search-results .sim-res-empty{padding:12px; font-size:12.5px; color:var(--text-faint);}
+  .sim-panel{margin-top:18px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .sim-panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:16px;}
+  .sim-account-name{font-family:var(--serif); font-size:19px; font-weight:600;}
+  .sim-account-meta{font-size:12px; color:var(--text-dim); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .sim-row{display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap;}
+  .sim-field{flex:1; min-width:200px;}
+  .sim-field-narrow{flex:0 0 140px;}
+  .sim-addons{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+  .sim-addon-chip{
+    display:flex; align-items:center; gap:7px; padding:7px 12px; border-radius:20px;
+    border:1px solid var(--line); background:var(--paper-raised); font-size:12.5px; cursor:pointer;
+    user-select:none;
+  }
+  .sim-addon-chip input{margin:0; accent-color:var(--gold);}
+  .sim-addon-chip.owned{border-color:var(--green-dim); color:var(--green);}
+  .sim-addon-chip .sim-addon-price{color:var(--text-faint); font-family:var(--mono); font-size:11px;}
+  .sim-results{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px;}
+  @media (max-width:640px){ .sim-results{grid-template-columns:1fr;} }
+  .sim-result-box{
+    border:1px solid var(--line); border-radius:var(--radius-sm); padding:14px 16px;
+    background:var(--paper-raised); display:flex; flex-direction:column; gap:4px;
+  }
+  .sim-result-box.highlight{border-color:var(--gold-dim); background:var(--gold-dim); background:rgba(201,162,39,.08);}
+  .sim-result-label{font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-dim); font-weight:600;}
+  .sim-result-value{font-family:var(--mono); font-size:24px; font-weight:700; color:var(--gold);}
+  .sim-result-sub{font-size:11px; color:var(--text-faint);}
+  .sim-note{margin-top:10px; font-size:11.5px; color:var(--text-faint);}
+
   /* ---------- Calendar ---------- */
   .cal-controls{margin-bottom:12px;}
   .cal-controls select{width:auto; min-width:160px;}
@@ -470,6 +515,58 @@
 
         <div class="desktop-only-section">
         <div class="ledger-strip" id="kpiStrip"></div>
+
+        <div class="section-head">
+          <div>
+            <h3>Simulador de oportunidade</h3>
+            <p>Busque um cliente, prospect ou ex-cliente e veja o valor estimado de uma possível venda, com base na tabela de preços vigente.</p>
+          </div>
+        </div>
+        <div class="card sim-card">
+          <div class="sim-search-row">
+            <input type="search" id="simSearchBox" placeholder="Buscar conta por nome…" autocomplete="off">
+            <div id="simSearchResults" class="sim-search-results" style="display:none;"></div>
+          </div>
+          <div id="simPanel" class="sim-panel" style="display:none;">
+            <div class="sim-panel-head">
+              <div>
+                <div class="sim-account-name" id="simAccountName"></div>
+                <div class="sim-account-meta" id="simAccountMeta"></div>
+              </div>
+              <button type="button" class="clear-link" id="simClear">trocar conta</button>
+            </div>
+
+            <div class="sim-row">
+              <div class="sim-field">
+                <span class="fl">Pacote a simular</span>
+                <select id="simPacoteSelect"></select>
+              </div>
+              <div class="sim-field sim-field-narrow">
+                <span class="fl">Nº de usuários</span>
+                <input type="number" id="simUsuariosInput" min="1" step="1">
+              </div>
+            </div>
+
+            <div class="sim-field">
+              <span class="fl">Produtos adicionais a considerar</span>
+              <div class="sim-addons" id="simAddonsList"></div>
+            </div>
+
+            <div class="sim-results">
+              <div class="sim-result-box">
+                <span class="sim-result-label">Potencial total</span>
+                <span class="sim-result-value" id="simTotalPotencial">—</span>
+                <span class="sim-result-sub">pacote + todos os produtos, no nº de usuários informado</span>
+              </div>
+              <div class="sim-result-box highlight">
+                <span class="sim-result-label">Oportunidade (o que falta vender)</span>
+                <span class="sim-result-value" id="simTotalOportunidade">—</span>
+                <span class="sim-result-sub" id="simOportunidadeSub">apenas o que a conta ainda não possui</span>
+              </div>
+            </div>
+            <div class="sim-note" id="simNote"></div>
+          </div>
+        </div>
 
         <div class="section-head">
           <div>
@@ -744,6 +841,7 @@
 </script>
 
 <script src="config.js"></script>
+<script src="price-data.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1037,6 +1135,7 @@
         __rawRow: r,
         Responsavel: r.Responsavel || '',
         Prospect: (r.Prospect || '').toString().trim() || '(sem nome)',
+        PacoteAtual: (r.Pacote_Atual || r.PacoteAtual || r.Pacote || '').toString().trim(),
         Tipo: tipo,
         Cliente: STATUS_ORDER.includes(cliente) ? cliente : cliente,
         Sistema_Atual: (r.Sistema_Atual || '').toString().trim(),
@@ -2075,6 +2174,191 @@
     const btn = e.target.closest('.btn-copy-email');
     if(btn) copiarTexto(btn.dataset.email, btn);
   });
+
+  // ---------- Simulador de oportunidade ----------
+  let simSelected = null; // linha (RAW item) selecionada
+
+  function normalizePacoteKey(txt){
+    const t = (txt||'').toString().toLowerCase();
+    if(!t) return '';
+    if(/\bone\b/.test(t)) return 'ONE';
+    if(/\bmax\b/.test(t)) return 'MAX';
+    if(/personalizado/.test(t)) return 'PERSONALIZADO';
+    if(/empresarial/.test(t)) return 'EMPRESARIAL';
+    if(/premium/.test(t)) return 'CONTABIL_PREMIUM';
+    if(/\bplus\b/.test(t)) return 'CONTABIL_PLUS';
+    if(/\bstart\b/.test(t)) return 'CONTABIL_START';
+    if(/\bpro\b/.test(t)) return 'PRO';
+    return '';
+  }
+
+  function fillSimPacoteSelect(){
+    const sel = document.getElementById('simPacoteSelect');
+    if(!sel || typeof PRICE_BASE_META === 'undefined') return;
+    const ativos = Object.entries(PRICE_BASE_META).filter(([,m])=>m.ativo);
+    const legados = Object.entries(PRICE_BASE_META).filter(([,m])=>!m.ativo);
+    sel.innerHTML =
+      '<optgroup label="Pacotes vigentes">' +
+        ativos.map(([k,m])=>`<option value="${k}">${esc(m.label)}</option>`).join('') +
+      '</optgroup>' +
+      (legados.length ? '<optgroup label="Legados (só para contas já ativas)">' +
+        legados.map(([k,m])=>`<option value="${k}">${esc(m.label)}</option>`).join('') +
+      '</optgroup>' : '');
+  }
+
+  function priceFromTable(table, n){
+    if(!table || !n || n<1) return null;
+    if(table[n] != null) return table[n];
+    const keys = Object.keys(table).map(Number);
+    if(!keys.length) return null;
+    const maxK = Math.max(...keys), minK = Math.min(...keys);
+    if(n > maxK) return { valor: table[maxK], estimado:true };
+    if(n < minK) return null;
+    // procura o mais próximo abaixo (tabelas quase sempre têm todo N, isso é fallback raro)
+    let best = null;
+    keys.forEach(k=>{ if(k<=n && (best===null || k>best)) best=k; });
+    return best!=null ? { valor: table[best], estimado:true } : null;
+  }
+  function priceVal(table, n){
+    const r = priceFromTable(table, n);
+    if(r==null) return null;
+    return typeof r === 'object' ? r.valor : r;
+  }
+  function priceEstimado(table, n){
+    const r = priceFromTable(table, n);
+    return r && typeof r === 'object' ? !!r.estimado : false;
+  }
+
+  function addonPrice(addonKey, pacoteKey, n){
+    const addon = PRICE_ADDONS[addonKey];
+    if(!addon || !n) return null;
+    if(addon.tabela) return priceVal(addon.tabela, n); // Web
+    if(addon.faixasEmpresarial && pacoteKey==='EMPRESARIAL'){
+      const f = addon.faixasEmpresarial.find(f=> n>=f.min && (f.max==null || n<=f.max));
+      if(f) return f.valor;
+    }
+    const grupo = addon.mapaBase ? addon.mapaBase[pacoteKey] : null;
+    if(!grupo || !addon.grupos || !addon.grupos[grupo]) return null;
+    return priceVal(addon.grupos[grupo], n);
+  }
+
+  function simRenderAddons(){
+    const wrap = document.getElementById('simAddonsList');
+    if(!wrap || !simSelected) return;
+    const pacoteKey = document.getElementById('simPacoteSelect').value;
+    const n = Number(document.getElementById('simUsuariosInput').value) || 0;
+    wrap.innerHTML = PRODUCT_COLS.map(col=>{
+      const addonKey = col; // PRODUCT_COLS: Web, Processos, Messenger, Kolossus, Contabilidade_Digital
+      const owned = simSelected.products[col] === 'Sim';
+      const preco = addonPrice(addonKey, pacoteKey, n);
+      const precoTxt = preco!=null ? fmtBRL(preco) : 'indisponível p/ este pacote';
+      const checked = owned ? '' : (preco!=null ? 'checked' : '');
+      return `<label class="sim-addon-chip ${owned?'owned':''}">
+        <input type="checkbox" data-addon="${addonKey}" ${owned?'checked disabled':checked} ${preco==null?'disabled':''}>
+        <span>${esc(PRODUCT_LABELS[col]||col)}${owned?' · já possui':''}</span>
+        <span class="sim-addon-price">${precoTxt}</span>
+      </label>`;
+    }).join('');
+    wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', simCalc);
+    });
+  }
+
+  function simCalc(){
+    if(!simSelected) return;
+    const pacoteKey = document.getElementById('simPacoteSelect').value;
+    const n = Number(document.getElementById('simUsuariosInput').value) || 0;
+    const baseTable = PRICE_BASE[pacoteKey];
+    const baseVal = priceVal(baseTable, n);
+    const baseEstimado = priceEstimado(baseTable, n);
+
+    let totalPotencial = baseVal || 0;
+    let totalOportunidade = 0;
+    const jaECliente = simSelected.Cliente === 'Cliente';
+    if(!jaECliente) totalOportunidade += (baseVal || 0);
+
+    const wrap = document.getElementById('simAddonsList');
+    let algumIndisponivel = baseVal==null;
+    wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      const addonKey = cb.dataset.addon;
+      const preco = addonPrice(addonKey, pacoteKey, n);
+      if(preco == null) return;
+      totalPotencial += preco;
+      const owned = simSelected.products[addonKey] === 'Sim';
+      if(cb.checked && !owned) totalOportunidade += preco;
+    });
+
+    document.getElementById('simTotalPotencial').textContent = baseVal!=null ? fmtBRL(totalPotencial) : 'indisponível';
+    document.getElementById('simTotalOportunidade').textContent = fmtBRL(totalOportunidade);
+    document.getElementById('simOportunidadeSub').textContent = jaECliente
+      ? 'já é cliente do pacote base — considera só os produtos ainda não vendidos'
+      : 'inclui o pacote base (ainda não é cliente) + produtos marcados acima';
+
+    const notas = [];
+    if(baseVal==null) notas.push(`o pacote selecionado não tem preço tabelado para ${n} usuário(s).`);
+    if(baseEstimado) notas.push('valor do pacote base estimado (nº de usuários acima do limite da tabela).');
+    document.getElementById('simNote').textContent = notas.join(' ');
+  }
+
+  function simSelectAccount(r){
+    simSelected = r;
+    document.getElementById('simSearchResults').style.display = 'none';
+    document.getElementById('simSearchBox').value = '';
+    document.getElementById('simPanel').style.display = '';
+    document.getElementById('simAccountName').textContent = r.Prospect;
+    const metaParts = [
+      `<span class="stamp ${r.Cliente}" style="transform:none; padding:2px 7px;">${esc(r.Cliente)}</span>`,
+      r.Tipo && r.Tipo!=='Não informado' ? esc(r.Tipo) : null,
+      r.Cidade ? esc(r.Cidade) : null,
+      r.Responsavel ? 'vendedor: '+esc(r.Responsavel) : null,
+    ].filter(Boolean);
+    document.getElementById('simAccountMeta').innerHTML = metaParts.join(' &middot; ');
+    document.getElementById('simUsuariosInput').value = r.Usuarios || 1;
+    const pacoteKey = normalizePacoteKey(r.PacoteAtual) || 'PRO';
+    document.getElementById('simPacoteSelect').value = pacoteKey;
+    simRenderAddons();
+    simCalc();
+  }
+
+  function simDoSearch(term){
+    const box = document.getElementById('simSearchResults');
+    const t = term.trim().toLowerCase();
+    if(t.length < 2){ box.style.display='none'; return; }
+    const matches = scopedRaw().filter(r=> r.Prospect.toLowerCase().includes(t)).slice(0,8);
+    if(!matches.length){
+      box.innerHTML = '<div class="sim-res-empty">Nenhuma conta encontrada.</div>';
+    } else {
+      box.innerHTML = matches.map(r=>
+        `<div class="sim-res-item" data-rid="${r.__rid}">
+          <span class="sim-res-name">${esc(r.Prospect)}</span>
+          <span class="stamp ${r.Cliente}" style="transform:none; padding:2px 7px;">${esc(r.Cliente)}</span>
+        </div>`
+      ).join('');
+    }
+    box.style.display = '';
+    box.querySelectorAll('.sim-res-item').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const rid = Number(el.dataset.rid);
+        const r = RAW.find(x=>x.__rid===rid);
+        if(r) simSelectAccount(r);
+      });
+    });
+  }
+
+  if(document.getElementById('simSearchBox')){
+    fillSimPacoteSelect();
+    document.getElementById('simSearchBox').addEventListener('input', (e)=> simDoSearch(e.target.value));
+    document.getElementById('simPacoteSelect').addEventListener('change', ()=>{ simRenderAddons(); simCalc(); });
+    document.getElementById('simUsuariosInput').addEventListener('input', ()=>{ simRenderAddons(); simCalc(); });
+    document.getElementById('simClear').addEventListener('click', ()=>{
+      simSelected = null;
+      document.getElementById('simPanel').style.display = 'none';
+    });
+    document.addEventListener('click', (e)=>{
+      const wrap = document.querySelector('.sim-search-row');
+      if(wrap && !wrap.contains(e.target)) document.getElementById('simSearchResults').style.display='none';
+    });
+  }
 
   function renderTable(){
     const rows = [...VIEW].sort((a,b)=>{
