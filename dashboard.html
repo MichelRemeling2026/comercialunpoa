@@ -929,8 +929,17 @@
     const contaIds = (rows || []).map(r => r.id);
 
     // busca a base de contatos (telefone/celular/e-mail), também em lotes,
-    // e monta um mapa por "codigo" pra relacionar com as contas
+    // e monta dois mapas: por "codigo" (relacionamento exato) e por
+    // "responsavel + nome do prospect" (reforço, caso o código não bata)
     let contatosMap = {};
+    let contatosPorNome = {};
+    function normalizeName(s){
+      return (s||'').toString()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove acentos
+        .toUpperCase()
+        .replace(/\s+/g,' ')
+        .trim();
+    }
     {
       let contatoRows = [];
       const PAGE = 1000;
@@ -938,16 +947,22 @@
       while (true) {
         const { data, error } = await supabaseClient
           .from('contatos')
-          .select('codigo, celular, telefone, email')
+          .select('codigo, responsavel, prospect, celular, telefone, email')
           .range(from, from + PAGE - 1);
         if (error) break; // se a tabela/permite ainda não existir, segue sem contatos
         contatoRows = contatoRows.concat(data || []);
         if (!data || data.length < PAGE) break;
         from += PAGE;
       }
-      contatoRows.forEach(c => { contatosMap[c.codigo] = c; });
+      contatoRows.forEach(c => {
+        contatosMap[c.codigo] = c;
+        const chaveNome = normalizeName(c.responsavel) + '|' + normalizeName(c.prospect);
+        if(chaveNome !== '|') contatosPorNome[chaveNome] = c;
+      });
     }
     window.__contatosMap = contatosMap;
+    window.__contatosPorNome = contatosPorNome;
+    window.__normalizeName = normalizeName;
 
     if (json.length === 0) {
       document.getElementById('loadingTitle').textContent = 'Nenhuma conta encontrada';
@@ -1017,7 +1032,11 @@
       const products = PRODUCT_COLS.reduce((acc,c)=>{ acc[c] = (r[c]||'').toString().trim(); return acc; }, {});
       const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
       const codigo = Number(r.Codigo ?? r.CodCliente ?? r['Código'] ?? '');
-      const contatoInfo = (window.__contatosMap && !isNaN(codigo)) ? window.__contatosMap[codigo] : null;
+      let contatoInfo = (window.__contatosMap && !isNaN(codigo)) ? window.__contatosMap[codigo] : null;
+      if(!contatoInfo && window.__contatosPorNome){
+        const chaveNome = window.__normalizeName(r.Responsavel) + '|' + window.__normalizeName(r.Prospect);
+        contatoInfo = window.__contatosPorNome[chaveNome] || null;
+      }
       return {
         __rid: __i,
         __contaId: contaIds ? contaIds[__i] : null,
@@ -1050,6 +1069,10 @@
         Email: contatoInfo ? (contatoInfo.email||'').toString().trim() : ''
       };
     }).filter(r => r.Prospect !== '(sem nome)' || r.ValorNum > 0 || r.Tipo !== 'Não informado');
+
+    // diagnóstico: quantos contatos foram vinculados (visível no console do navegador)
+    const comContato = RAW.filter(r => r.Celular || r.TelefoneContato || r.Email).length;
+    console.log(`[Painel Comercial] Contatos vinculados: ${comContato} de ${RAW.length} contas (base de contatos tem ${Object.keys(window.__contatosMap||{}).length} registros).`);
 
     // init filters
     const statuses = [...new Set(RAW.map(r=>r.Cliente))];
