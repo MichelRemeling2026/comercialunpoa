@@ -755,6 +755,7 @@
             <div id="routeSummary" style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:var(--ink-2); border:1px solid var(--line); border-radius:8px; font-size:12.5px; color:var(--text-dim);"></div>
             <ol id="routeOrderedList" style="margin:0 0 14px; padding-left:20px; color:var(--text-dim); font-size:13.5px; line-height:1.9;"></ol>
             <a class="btn gold" id="btnOpenGoogleMaps" href="#" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Abrir roteiro completo no Google Maps</a>
+            <button class="btn ghost" id="btnBaixarRoteiro" style="margin-left:8px;">⬇ Baixar roteiro (Excel)</button>
             <p style="font-size:11px; color:var(--text-faint); margin-top:10px;">
               Ordem e distância calculadas em linha reta entre os endereços (não considera trânsito, sentido das ruas ou traçado real). Tempo é uma estimativa aproximada.
               Geocodificação: © colaboradores do OpenStreetMap, via Nominatim.
@@ -845,6 +846,13 @@
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
     'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
   ];
+
+  const XLSX_SOURCES = [
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+  ];
+  window.XLSX_READY = loadScriptCascade(XLSX_SOURCES).catch(()=>{ /* baixar roteiro cai para CSV se isso falhar */ });
 
   window.CHART_READY = loadScriptCascade(CHART_SOURCES)
     .then(()=>{ window.LIBS_READY = true; })
@@ -1944,6 +1952,7 @@
 
   // ---------- Roteiro de visitas ----------
   const routeSelected = new Set(); // guarda o __rid das contas selecionadas
+  let ultimaRotaFinal = []; // último roteiro calculado (array de {lat,lng,conta}), para exportação
   const geocodeCache = {}; // evita geocodificar o mesmo endereço duas vezes na sessão
 
   function routeCandidates(){
@@ -1990,6 +1999,7 @@
     document.getElementById('btnOpenGoogleMaps').href = '#';
     document.getElementById('btnClearRoute').style.display = 'none';
     document.getElementById('routeStatus').style.display = 'none';
+    ultimaRotaFinal = [];
   }
 
   document.getElementById('btnRouteSelectAll').addEventListener('click', ()=>{
@@ -2120,6 +2130,7 @@
     statusEl.textContent = 'Calculando a ordem mais eficiente entre ' + pontos.length + ' pontos…';
     const ordem = melhorRota(pontos);
     const rotaFinal = ordem.map(i => pontos[i]);
+    ultimaRotaFinal = rotaFinal;
 
     // distância total (linha reta) + estimativa de tempo com fator de correção
     // pra aproximar de distância real de estrada (que é sempre maior que a linha reta)
@@ -2163,6 +2174,53 @@
     document.getElementById('btnOpenGoogleMaps').href = url;
   });
 
+  async function baixarRoteiroXlsx(){
+    if(!ultimaRotaFinal.length){ return; }
+    const linhas = ultimaRotaFinal.map((p, i)=>{
+      const c = p.conta;
+      const op = computeOpportunityAuto(c);
+      return {
+        'Ordem': i+1,
+        'Conta': c.Prospect,
+        'Status': c.Cliente,
+        'Endereço': c.Endereco || '',
+        'Concorrente / Sistema atual': c.Sistema_Atual || '',
+        'Nº de usuários': c.Usuarios || '',
+        'Pacote considerado': op.pacoteAtualLabel || '',
+        'Produtos que já possui': op.jaPossui.join(', ') || (c.Cliente==='Cliente' ? 'nenhum adicional' : '—'),
+        'Produtos a vender (com valor)': op.aVender.join(' · ') || '—',
+        'Oportunidade estimada (R$)': Number(op.oportunidadeTotal.toFixed(2)),
+      };
+    });
+
+    try{
+      await window.XLSX_READY;
+    }catch(e){ /* segue mesmo se falhar, cai no CSV abaixo */ }
+
+    const stamp = new Date().toISOString().slice(0,10);
+    if(typeof XLSX !== 'undefined'){
+      const ws = XLSX.utils.json_to_sheet(linhas);
+      ws['!cols'] = [{wch:7},{wch:32},{wch:12},{wch:40},{wch:24},{wch:12},{wch:16},{wch:26},{wch:50},{wch:20}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Roteiro de visitas');
+      XLSX.writeFile(wb, 'roteiro_visitas_'+stamp+'.xlsx');
+    } else {
+      // fallback: CSV, caso a biblioteca de planilhas não carregue
+      const headers = Object.keys(linhas[0]);
+      const csvEscape = v => `"${String(v).replace(/"/g,'""')}"`;
+      const csv = [headers.map(csvEscape).join(';')]
+        .concat(linhas.map(l => headers.map(h=>csvEscape(l[h])).join(';')))
+        .join('\r\n');
+      const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'roteiro_visitas_'+stamp+'.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  }
+  document.getElementById('btnBaixarRoteiro').addEventListener('click', baixarRoteiroXlsx);
+
 
   // ---------- Table ----------
   document.querySelectorAll('th button[data-sort]').forEach(btn=>{
@@ -2204,6 +2262,14 @@
     if(/\bstart\b/.test(t)) return 'CONTABIL_START';
     if(/\bpro\b/.test(t)) return 'PRO';
     return '';
+  }
+
+  // Quando a planilha não informa o pacote atual explicitamente, aplica a regra:
+  // até 2 usuários -> Domínio One · 3 ou mais usuários -> Domínio Max
+  function detectPacoteAtual(usuarios){
+    const n = Number(usuarios) || 0;
+    if(n <= 0) return '';
+    return n <= 2 ? 'ONE' : 'MAX';
   }
 
   function fillSimPacoteSelect(){
@@ -2254,6 +2320,41 @@
     const grupo = addon.mapaBase ? addon.mapaBase[pacoteKey] : null;
     if(!grupo || !addon.grupos || !addon.grupos[grupo]) return null;
     return priceVal(addon.grupos[grupo], n);
+  }
+
+  // Calcula automaticamente (sem interação do usuário) o que uma conta já tem e
+  // o que dá pra vender pra ela, usada na exportação do roteiro de visitas.
+  function computeOpportunityAuto(r){
+    const n = r.Usuarios || 0;
+    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual) || detectPacoteAtual(n);
+    const ehCliente = r.Cliente === 'Cliente';
+    const jaPossui = PRODUCT_COLS.filter(c => r.products[c] === 'Sim').map(c => PRODUCT_LABELS[c] || c);
+
+    const aVender = [];
+    let oportunidadeTotal = 0;
+
+    if(!ehCliente && pacoteAtualKey && n>0){
+      const baseVal = priceVal(PRICE_BASE[pacoteAtualKey], n);
+      if(baseVal != null){
+        aVender.push(`${PRICE_BASE_META[pacoteAtualKey].label} (${fmtBRL(baseVal)})`);
+        oportunidadeTotal += baseVal;
+      }
+    }
+    if(pacoteAtualKey && n>0){
+      PRODUCT_COLS.forEach(col=>{
+        if(r.products[col] === 'Sim') return; // já possui
+        const preco = addonPrice(col, pacoteAtualKey, n);
+        if(preco != null){
+          aVender.push(`${PRODUCT_LABELS[col]||col} (${fmtBRL(preco)})`);
+          oportunidadeTotal += preco;
+        }
+      });
+    }
+
+    return {
+      pacoteAtualLabel: pacoteAtualKey ? (PRICE_BASE_META[pacoteAtualKey]?.label || pacoteAtualKey) : '',
+      jaPossui, aVender, oportunidadeTotal
+    };
   }
 
   function simRenderAddons(){
@@ -2379,7 +2480,7 @@
     document.getElementById('simUsuariosInput').value = r.Usuarios || 1;
 
     // só assume o pacote atual como padrão quando a conta já é cliente (prospect/ex-cliente não tem pacote nosso vigente)
-    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual);
+    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual) || detectPacoteAtual(r.Usuarios);
     const pacoteDefault = (r.Cliente === 'Cliente' && pacoteAtualKey) ? pacoteAtualKey : 'PRO';
     document.getElementById('simPacoteSelect').value = pacoteDefault;
 
