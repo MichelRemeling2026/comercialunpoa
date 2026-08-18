@@ -147,7 +147,7 @@
 
   .ledger-strip{
     display:grid;
-    grid-template-columns:repeat(8, 1fr);
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
     border:1px solid var(--line);
     border-radius:var(--radius);
     background:var(--paper);
@@ -157,6 +157,7 @@
   .kpi{
     padding:16px 16px;
     border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
     display:flex; flex-direction:column; gap:6px;
   }
   .kpi:last-child{border-right:none;}
@@ -168,17 +169,16 @@
     font-family:var(--mono); font-size:21px; font-weight:600;
     color:var(--text); font-variant-numeric:tabular-nums;
   }
+  .kpi .sub{font-family:var(--mono); font-size:10.5px; color:var(--text-faint);}
   .kpi.alert .value{color:var(--red);}
   .kpi.money .value{color:var(--gold);}
   .kpi.pos .value{color:var(--green);}
 
   @media (max-width: 1100px){
     .ledger-strip{grid-template-columns:repeat(4,1fr);}
-    .kpi:nth-child(4){border-right:none;}
   }
   @media (max-width: 620px){
     .ledger-strip{grid-template-columns:repeat(2,1fr);}
-    .kpi:nth-child(2n){border-right:none;}
   }
 
   /* ---------- Filters ---------- */
@@ -321,6 +321,7 @@
   .sim-current-item .sim-current-sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
   .sim-current-item .sim-current-value.below{color:var(--red);}
   .sim-current-item .sim-current-value.ontable{color:var(--green);}
+  .sim-field-hint{display:block; font-size:11px; color:var(--text-faint); margin-top:4px;}
   .sim-account-meta{font-size:12px; color:var(--text-dim); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
   .sim-row{display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap;}
   .sim-field{flex:1; min-width:200px;}
@@ -552,7 +553,15 @@
 
             <div class="sim-row">
               <div class="sim-field">
-                <span class="fl">Pacote a simular</span>
+                <span class="fl">Pacote atual (contrato vigente)</span>
+                <select id="simPacoteAtualSelect"></select>
+                <span class="sim-field-hint" id="simPacoteAtualHint"></span>
+              </div>
+            </div>
+
+            <div class="sim-row">
+              <div class="sim-field">
+                <span class="fl">Pacote a simular (o que oferecer)</span>
                 <select id="simPacoteSelect"></select>
               </div>
               <div class="sim-field sim-field-narrow">
@@ -579,6 +588,23 @@
               </div>
             </div>
             <div class="sim-note" id="simNote"></div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h3>Ranking de oportunidade <span class="n" id="rankN"></span></h3>
+            <p>Contas ordenadas pelo potencial estimado de venda (produtos que faltam + pacote, quando ainda não é cliente). Usa os mesmos filtros da barra lateral.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sim-field" style="max-width:340px; margin-bottom:14px;">
+            <span class="fl">Pacote de referência p/ contas sem pacote conhecido</span>
+            <select id="rankPacoteRefSelect"></select>
+          </div>
+          <ul class="alert-list" id="rankList"></ul>
+          <div style="margin-top:10px; text-align:center;">
+            <button class="clear-link" id="btnRankMostrarMais" style="display:none;">mostrar mais</button>
           </div>
         </div>
 
@@ -745,6 +771,11 @@
             <button class="clear-link" id="btnRouteClearAll">limpar seleção</button>
           </div>
           <div id="routeAccountList" style="max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px;"></div>
+          <div class="sim-field" style="max-width:340px; margin-top:14px;">
+            <span class="fl">Pacote de referência p/ calcular oportunidades no arquivo</span>
+            <select id="routePacoteRefSelect"></select>
+            <span class="sim-field-hint">usado só pra contas sem pacote conhecido na planilha — escolha o mais comum na rota</span>
+          </div>
           <div style="display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;">
             <button class="btn gold" id="btnCalcRoute">Calcular melhor roteiro</button>
             <button class="btn ghost" id="btnClearRoute" style="display:none;">Limpar rota calculada</button>
@@ -1556,6 +1587,7 @@
     renderDemoList();
     renderTable();
     renderRouteAccountList();
+    renderRanking();
   }
 
   // ---------- KPIs ----------
@@ -1569,6 +1601,20 @@
     const usuariosTotal = clientes.reduce((s,r)=>s+r.Usuarios,0);
     const semContato = VIEW.filter(r=> r.Cliente!=='Ex-Cliente' && r.diasSemContato!=null && r.diasSemContato>90).length;
 
+    // "abaixo da tabela": só para clientes com pacote atual CONFIRMADO na planilha
+    // (nunca usa a regra de sugestão por nº de usuários, pra não inflar o número com suposição)
+    let abaixoTotal = 0, abaixoQtd = 0;
+    if(typeof PRICE_BASE !== 'undefined'){
+      clientes.forEach(r=>{
+        const pacoteKey = normalizePacoteKey(r.PacoteAtual);
+        if(!pacoteKey || !r.Usuarios || !r.ValorNum) return;
+        const tabelaVal = priceVal(PRICE_BASE[pacoteKey], r.Usuarios);
+        if(tabelaVal == null) return;
+        const diff = tabelaVal - r.ValorNum;
+        if(diff > 0.5){ abaixoTotal += diff; abaixoQtd++; }
+      });
+    }
+
     const kpis = [
       {label:'Total de contas', value: fmtInt(total)},
       {label:'Clientes', value: fmtInt(clientes.length), cls:'pos'},
@@ -1578,9 +1624,10 @@
       {label:'Ticket médio', value: fmtBRL(ticketMedio), cls:'money'},
       {label:'Usuários ativos', value: fmtInt(usuariosTotal)},
       {label:'Sem contato 90+ dias', value: fmtInt(semContato), cls:'alert'},
+      {label:'Abaixo da tabela (pacote confirmado)', value: fmtBRL(abaixoTotal), cls:'alert', sub: abaixoQtd+' conta(s)'},
     ];
     document.getElementById('kpiStrip').innerHTML = kpis.map(k=>
-      `<div class="kpi ${k.cls||''}"><span class="label">${k.label}</span><span class="value">${k.value}</span></div>`
+      `<div class="kpi ${k.cls||''}"><span class="label">${k.label}</span><span class="value">${k.value}</span>${k.sub?`<span class="sub">${k.sub}</span>`:''}</div>`
     ).join('');
     document.getElementById('visaoGeralN').textContent = '('+fmtInt(total)+' contas no filtro atual)';
   }
@@ -1950,6 +1997,57 @@
     }).join('');
   }
 
+  // ---------- Ranking de oportunidade ----------
+  let rankLimit = 20;
+  function renderRanking(){
+    const listEl = document.getElementById('rankList');
+    if(!listEl || typeof computeOpportunityAuto !== 'function') return;
+    const selEl = document.getElementById('rankPacoteRefSelect');
+    const pacoteRefKey = selEl ? selEl.value : 'PRO';
+
+    const ranked = VIEW.map(r => ({ r, op: computeOpportunityAuto(r, pacoteRefKey) }))
+      .filter(x => x.op.oportunidadeTotal > 0)
+      .sort((a,b) => b.op.oportunidadeTotal - a.op.oportunidadeTotal);
+
+    document.getElementById('rankN').textContent = '('+fmtInt(ranked.length)+' contas com oportunidade estimada)';
+
+    if(ranked.length === 0){
+      listEl.innerHTML = '<li class="empty-note">Nenhuma oportunidade calculável no filtro atual — confira o pacote de referência acima.</li>';
+      document.getElementById('btnRankMostrarMais').style.display = 'none';
+      return;
+    }
+
+    const shown = ranked.slice(0, rankLimit);
+    listEl.innerHTML = shown.map((x,i)=>{
+      const r = x.r, op = x.op;
+      const itens = op.aVender.map(s=> s.replace(/\s*\(R\$[^)]*\)/,'')).slice(0,3).join(', ') + (op.aVender.length>3 ? '…' : '');
+      return `<li>
+        <span style="font-family:var(--mono); font-size:11px; color:var(--text-faint); width:20px; flex:none; text-align:right;">${i+1}</span>
+        <span class="stamp ${r.Cliente}">${esc(r.Cliente)}</span>
+        <span class="name">
+          <a href="#" class="rank-open-sim" data-rid="${r.__rid}" style="text-decoration:none; color:var(--text); font-weight:600;" title="Abrir no simulador">${esc(r.Prospect)}</a>
+          <span class="meta">${r.Usuarios||0} usuário(s) · ${esc(op.pacoteAtualLabel)} · a vender: ${esc(itens || '—')}</span>
+        </span>
+        <span class="days" style="color:var(--gold);">${fmtBRL(op.oportunidadeTotal)}</span>
+      </li>`;
+    }).join('');
+
+    document.getElementById('btnRankMostrarMais').style.display = ranked.length > rankLimit ? '' : 'none';
+
+    listEl.querySelectorAll('.rank-open-sim').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const rid = Number(el.dataset.rid);
+        const r = RAW.find(x=>x.__rid===rid);
+        if(r){
+          simSelectAccount(r);
+          const card = document.querySelector('.sim-card');
+          if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+        }
+      });
+    });
+  }
+
   // ---------- Roteiro de visitas ----------
   const routeSelected = new Set(); // guarda o __rid das contas selecionadas
   let ultimaRotaFinal = []; // último roteiro calculado (array de {lat,lng,conta}), para exportação
@@ -2000,6 +2098,18 @@
     document.getElementById('btnClearRoute').style.display = 'none';
     document.getElementById('routeStatus').style.display = 'none';
     ultimaRotaFinal = [];
+  }
+
+  if(document.getElementById('routePacoteRefSelect')){
+    fillPacoteSelect('routePacoteRefSelect');
+    document.getElementById('routePacoteRefSelect').value = 'PRO';
+  }
+
+  if(document.getElementById('rankPacoteRefSelect')){
+    fillPacoteSelect('rankPacoteRefSelect');
+    document.getElementById('rankPacoteRefSelect').value = 'PRO';
+    document.getElementById('rankPacoteRefSelect').addEventListener('change', ()=>{ rankLimit = 20; renderRanking(); });
+    document.getElementById('btnRankMostrarMais').addEventListener('click', ()=>{ rankLimit += 20; renderRanking(); });
   }
 
   document.getElementById('btnRouteSelectAll').addEventListener('click', ()=>{
@@ -2176,9 +2286,10 @@
 
   async function baixarRoteiroXlsx(){
     if(!ultimaRotaFinal.length){ return; }
+    const pacoteRefKey = document.getElementById('routePacoteRefSelect').value;
     const linhas = ultimaRotaFinal.map((p, i)=>{
       const c = p.conta;
-      const op = computeOpportunityAuto(c);
+      const op = computeOpportunityAuto(c, pacoteRefKey);
       return {
         'Ordem': i+1,
         'Conta': c.Prospect,
@@ -2272,12 +2383,13 @@
     return n <= 2 ? 'ONE' : 'MAX';
   }
 
-  function fillSimPacoteSelect(){
-    const sel = document.getElementById('simPacoteSelect');
+  function fillPacoteSelect(selectId, {incluirVazio} = {}){
+    const sel = document.getElementById(selectId);
     if(!sel || typeof PRICE_BASE_META === 'undefined') return;
     const ativos = Object.entries(PRICE_BASE_META).filter(([,m])=>m.ativo);
     const legados = Object.entries(PRICE_BASE_META).filter(([,m])=>!m.ativo);
     sel.innerHTML =
+      (incluirVazio ? '<option value="">— selecione o pacote —</option>' : '') +
       '<optgroup label="Pacotes vigentes">' +
         ativos.map(([k,m])=>`<option value="${k}">${esc(m.label)}</option>`).join('') +
       '</optgroup>' +
@@ -2322,28 +2434,32 @@
     return priceVal(addon.grupos[grupo], n);
   }
 
-  // Calcula automaticamente (sem interação do usuário) o que uma conta já tem e
+  // Calcula automaticamente (sem interação por conta) o que uma conta já tem e
   // o que dá pra vender pra ela, usada na exportação do roteiro de visitas.
-  function computeOpportunityAuto(r){
+  // pacoteRefKey: pacote escolhido PELO VENDEDOR no card de roteiro, usado só quando a
+  // planilha não informa o pacote real da conta (nunca é adivinhado sozinho).
+  function computeOpportunityAuto(r, pacoteRefKey){
     const n = r.Usuarios || 0;
-    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual) || detectPacoteAtual(n);
+    const pacoteDaPlanilha = normalizePacoteKey(r.PacoteAtual);
+    const pacoteUsado = pacoteDaPlanilha || pacoteRefKey || '';
+    const veioDaPlanilha = !!pacoteDaPlanilha;
     const ehCliente = r.Cliente === 'Cliente';
     const jaPossui = PRODUCT_COLS.filter(c => r.products[c] === 'Sim').map(c => PRODUCT_LABELS[c] || c);
 
     const aVender = [];
     let oportunidadeTotal = 0;
 
-    if(!ehCliente && pacoteAtualKey && n>0){
-      const baseVal = priceVal(PRICE_BASE[pacoteAtualKey], n);
+    if(!ehCliente && pacoteUsado && n>0){
+      const baseVal = priceVal(PRICE_BASE[pacoteUsado], n);
       if(baseVal != null){
-        aVender.push(`${PRICE_BASE_META[pacoteAtualKey].label} (${fmtBRL(baseVal)})`);
+        aVender.push(`${PRICE_BASE_META[pacoteUsado].label} (${fmtBRL(baseVal)})`);
         oportunidadeTotal += baseVal;
       }
     }
-    if(pacoteAtualKey && n>0){
+    if(pacoteUsado && n>0){
       PRODUCT_COLS.forEach(col=>{
         if(r.products[col] === 'Sim') return; // já possui
-        const preco = addonPrice(col, pacoteAtualKey, n);
+        const preco = addonPrice(col, pacoteUsado, n);
         if(preco != null){
           aVender.push(`${PRODUCT_LABELS[col]||col} (${fmtBRL(preco)})`);
           oportunidadeTotal += preco;
@@ -2352,7 +2468,7 @@
     }
 
     return {
-      pacoteAtualLabel: pacoteAtualKey ? (PRICE_BASE_META[pacoteAtualKey]?.label || pacoteAtualKey) : '',
+      pacoteAtualLabel: pacoteUsado ? (PRICE_BASE_META[pacoteUsado]?.label || pacoteUsado) + (veioDaPlanilha ? '' : ' (referência)') : 'não informado',
       jaPossui, aVender, oportunidadeTotal
     };
   }
@@ -2415,12 +2531,12 @@
     document.getElementById('simNote').textContent = notas.join(' ');
   }
 
-  function simBuildCurrentBox(r, pacoteAtualKey){
+  function simBuildCurrentBox(r){
     const produtosAtuais = PRODUCT_COLS.filter(c => r.products[c] === 'Sim').map(c => PRODUCT_LABELS[c] || c);
     const usuariosAtuais = r.Usuarios || 0;
     const pagaHoje = r.ValorNum || 0;
 
-    const items = [
+    return [
       `<div class="sim-current-item">
         <div class="sim-current-label">Usuários (contrato atual)</div>
         <div class="sim-current-value">${usuariosAtuais || '—'}</div>
@@ -2433,33 +2549,52 @@
         <div class="sim-current-label">Produtos que já possui</div>
         <div class="sim-current-value" style="font-family:var(--sans); font-size:13px;">${produtosAtuais.length ? esc(produtosAtuais.join(', ')) : 'nenhum'}</div>
       </div>`,
-    ];
+      `<div class="sim-current-item" id="simTabelaCompareItem"></div>`,
+    ].join('');
+  }
 
-    // comparação com a tabela, quando dá pra saber o pacote atual, o nº de usuários e o valor pago
-    if(pacoteAtualKey && usuariosAtuais && pagaHoje){
-      const tabelaVal = priceVal(PRICE_BASE[pacoteAtualKey], usuariosAtuais);
-      if(tabelaVal != null){
-        const diff = tabelaVal - pagaHoje;
-        const pct = tabelaVal ? (diff/tabelaVal*100) : 0;
-        let cls = '', texto;
-        if(diff > 0.5){
-          cls = 'below';
-          texto = `${fmtBRL(diff)} abaixo (${pct.toFixed(1)}%)`;
-        } else if(diff < -0.5){
-          cls = 'ontable';
-          texto = `${fmtBRL(-diff)} acima da tabela`;
-        } else {
-          cls = 'ontable';
-          texto = 'na tabela';
-        }
-        items.push(`<div class="sim-current-item">
-          <div class="sim-current-label">Valor de tabela hoje (${esc(PRICE_BASE_META[pacoteAtualKey].label)}, ${usuariosAtuais}u)</div>
-          <div class="sim-current-value ${cls}">${fmtBRL(tabelaVal)}</div>
-          <div class="sim-current-sub">${texto}</div>
-        </div>`);
-      }
+  // Recalcula só o quadrinho de comparação com a tabela, a partir do pacote atual
+  // ESCOLHIDO PELO VENDEDOR no select — nunca assume um pacote sozinho.
+  function simUpdateTabelaCompare(){
+    if(!simSelected) return;
+    const el = document.getElementById('simTabelaCompareItem');
+    if(!el) return;
+    const pacoteAtualKey = document.getElementById('simPacoteAtualSelect').value;
+    const usuariosAtuais = simSelected.Usuarios || 0;
+    const pagaHoje = simSelected.ValorNum || 0;
+
+    if(!pacoteAtualKey){
+      el.innerHTML = `<div class="sim-current-label">Comparação com a tabela</div>
+        <div class="sim-current-value" style="font-family:var(--sans); font-size:12.5px; color:var(--text-faint);">
+          selecione acima o pacote atual do cliente para comparar
+        </div>`;
+      return;
     }
-    return items.join('');
+    if(!usuariosAtuais || !pagaHoje){
+      el.innerHTML = `<div class="sim-current-label">Comparação com a tabela</div>
+        <div class="sim-current-value" style="font-family:var(--sans); font-size:12.5px; color:var(--text-faint);">
+          faltam usuários ou valor pago na planilha para comparar
+        </div>`;
+      return;
+    }
+    const tabelaVal = priceVal(PRICE_BASE[pacoteAtualKey], usuariosAtuais);
+    if(tabelaVal == null){
+      el.innerHTML = `<div class="sim-current-label">Comparação com a tabela</div>
+        <div class="sim-current-value" style="font-family:var(--sans); font-size:12.5px; color:var(--text-faint);">
+          sem preço tabelado para ${usuariosAtuais} usuário(s) nesse pacote
+        </div>`;
+      return;
+    }
+    const diff = tabelaVal - pagaHoje;
+    const pct = tabelaVal ? (diff/tabelaVal*100) : 0;
+    let cls, texto;
+    if(diff > 0.5){ cls='below'; texto = `${fmtBRL(diff)} abaixo (${pct.toFixed(1)}%)`; }
+    else if(diff < -0.5){ cls='ontable'; texto = `${fmtBRL(-diff)} acima da tabela`; }
+    else { cls='ontable'; texto = 'na tabela'; }
+    el.innerHTML = `
+      <div class="sim-current-label">Valor de tabela (${esc(PRICE_BASE_META[pacoteAtualKey].label)}, ${usuariosAtuais}u)</div>
+      <div class="sim-current-value ${cls}">${fmtBRL(tabelaVal)}</div>
+      <div class="sim-current-sub">${texto}</div>`;
   }
 
   function simSelectAccount(r){
@@ -2479,13 +2614,22 @@
     document.getElementById('simAccountMeta').innerHTML = metaParts.join(' &middot; ');
     document.getElementById('simUsuariosInput').value = r.Usuarios || 1;
 
-    // só assume o pacote atual como padrão quando a conta já é cliente (prospect/ex-cliente não tem pacote nosso vigente)
-    const pacoteAtualKey = normalizePacoteKey(r.PacoteAtual) || detectPacoteAtual(r.Usuarios);
-    const pacoteDefault = (r.Cliente === 'Cliente' && pacoteAtualKey) ? pacoteAtualKey : 'PRO';
-    document.getElementById('simPacoteSelect').value = pacoteDefault;
+    // pacote atual: só pré-marca se a planilha realmente informar (nunca por suposição).
+    // a regra por nº de usuários vira só uma SUGESTÃO em texto — quem decide é o vendedor.
+    const pacoteAtualSel = document.getElementById('simPacoteAtualSelect');
+    const pacoteAtualDaPlanilha = normalizePacoteKey(r.PacoteAtual);
+    pacoteAtualSel.value = pacoteAtualDaPlanilha || '';
+    const sugestao = detectPacoteAtual(r.Usuarios);
+    const hint = document.getElementById('simPacoteAtualHint');
+    hint.textContent = (!pacoteAtualDaPlanilha && sugestao)
+      ? `sugestão pela regra de usuários (até 2: One · 3+: Max): ${PRICE_BASE_META[sugestao].label} — confirme antes de usar`
+      : '';
 
-    document.getElementById('simCurrentBox').innerHTML =
-      simBuildCurrentBox(r, r.Cliente === 'Cliente' ? pacoteAtualKey : null);
+    // pacote a simular (o que oferecer): parte do pacote atual quando conhecido, senão fica em branco
+    document.getElementById('simPacoteSelect').value = pacoteAtualDaPlanilha || '';
+
+    document.getElementById('simCurrentBox').innerHTML = simBuildCurrentBox(r);
+    simUpdateTabelaCompare();
 
     simRenderAddons();
     simCalc();
@@ -2517,8 +2661,10 @@
   }
 
   if(document.getElementById('simSearchBox')){
-    fillSimPacoteSelect();
+    fillPacoteSelect('simPacoteSelect');
+    fillPacoteSelect('simPacoteAtualSelect', {incluirVazio:true});
     document.getElementById('simSearchBox').addEventListener('input', (e)=> simDoSearch(e.target.value));
+    document.getElementById('simPacoteAtualSelect').addEventListener('change', simUpdateTabelaCompare);
     document.getElementById('simPacoteSelect').addEventListener('change', ()=>{ simRenderAddons(); simCalc(); });
     document.getElementById('simUsuariosInput').addEventListener('input', ()=>{ simRenderAddons(); simCalc(); });
     document.getElementById('simClear').addEventListener('click', ()=>{
