@@ -342,7 +342,7 @@
   /* ---------- Table ---------- */
   .table-toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
   .table-wrap{
-    border:1px solid var(--line); border-radius:var(--radius); overflow:auto; max-height:560px; background:var(--paper);
+    border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; overflow-y:visible; background:var(--paper);
   }
   table{width:100%; border-collapse:collapse; font-size:13px;}
   thead th{
@@ -810,10 +810,6 @@
     if(digits.length <= 11) digits = '55' + digits; // assume Brasil se vier sem DDI
     return 'https://wa.me/' + digits;
   }
-  function telHref(tel){
-    const digits = (tel||'').replace(/[^\d+]/g,'');
-    return digits ? 'tel:' + digits : null;
-  }
   function copiarTexto(texto, btnEl){
     navigator.clipboard.writeText(texto).then(()=>{
       if(btnEl){ const old = btnEl.textContent; btnEl.textContent = '✓ copiado'; setTimeout(()=> btnEl.textContent = old, 1500); }
@@ -822,10 +818,8 @@
 
   function renderContatoCell(r){
     const wa = waHref(r.Celular);
-    const tel = telHref(r.TelefoneContato || r.Celular);
     const partes = [];
     if(wa) partes.push(`<a href="${wa}" target="_blank" rel="noopener" title="Chamar no WhatsApp" style="text-decoration:none;">💬</a>`);
-    if(tel) partes.push(`<a href="${tel}" title="Ligar" style="text-decoration:none;">📞</a>`);
     if(r.Email){
       partes.push(`<button class="clear-link btn-copy-email" data-email="${esc(r.Email)}" title="Copiar e-mail" style="font-size:11px;">✉ copiar</button>`);
     }
@@ -2037,10 +2031,8 @@
       const c = p.conta;
       const linkMaps = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng + '&travelmode=driving';
       const wa = waHref(c.Celular);
-      const tel = telHref(c.TelefoneContato || c.Celular);
       const contatoLinks = [];
       if(wa) contatoLinks.push(`<a href="${wa}" target="_blank" rel="noopener" title="WhatsApp" style="text-decoration:none;">💬</a>`);
-      if(tel) contatoLinks.push(`<a href="${tel}" title="Ligar" style="text-decoration:none;">📞</a>`);
       if(c.Email) contatoLinks.push(`<button class="clear-link btn-copy-email" data-email="${esc(c.Email)}" style="font-size:11px;">✉ copiar e-mail</button>`);
       return `<li>
         <b>${esc(c.Prospect)}</b> — ${esc(c.Endereco)} ${contatoLinks.join(' ')}
