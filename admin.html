@@ -59,6 +59,7 @@
   #globalMsg.err{border-color:var(--red); color:var(--red);}
   .note{font-size:12.5px; color:var(--text-faint); margin-top:24px; line-height:1.6;}
   .empty{color:var(--text-dim); font-size:13.5px;}
+  .section-title{font-family:var(--serif); font-weight:600; font-size:14px; color:var(--text-dim); margin:28px 0 12px; text-transform:uppercase; letter-spacing:.04em; font-size:12px;}
 </style>
 </head>
 <body>
@@ -76,6 +77,28 @@
 
 <main>
   <div id="globalMsg" style="display:none;"></div>
+
+  <div class="section-title">Contatos (telefone / celular / e-mail)</div>
+  <div class="vendor-card" id="contatosCard" style="display:block;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <div class="vendor-info">
+        <h3>Base de contatos (todos os vendedores)</h3>
+        <div class="meta"><span id="contatosQtd">carregando…</span> contatos importados hoje</div>
+        <div class="vendor-status" id="contatosStatus"></div>
+      </div>
+      <div class="vendor-actions">
+        <button class="btn gold small" type="button" id="btnChooseContatos">Enviar arquivo</button>
+        <input class="file-input" type="file" accept=".xlsx,.xls" id="fileContatos">
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:0; margin-bottom:28px;">
+    Envie aqui a planilha única com <b>Codigo, Responsavel, Celular, Telefone, Email</b> (ex: exportação do CRM).
+    Ela é relacionada às contas de cada vendedor pelo campo <b>Codigo</b> — por isso a planilha comercial de cada
+    vendedor também precisa ter essa coluna preenchida com o mesmo número.
+  </p>
+
+  <div class="section-title">Planilhas comerciais por vendedor</div>
   <div id="vendorList"></div>
 
   <p class="note">
@@ -104,6 +127,94 @@
     await supabaseClient.auth.signOut();
     window.location.href = 'login.html';
   });
+
+  // ---- contagem atual de contatos já importados ----
+  const { count: qtdContatos } = await supabaseClient
+    .from('contatos').select('codigo', { count: 'exact', head: true });
+  document.getElementById('contatosQtd').textContent = qtdContatos || 0;
+
+  // ---- upload da base única de contatos ----
+  document.getElementById('btnChooseContatos').addEventListener('click', ()=>{
+    document.getElementById('fileContatos').click();
+  });
+  document.getElementById('fileContatos').addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if (f) handleFileContatos(f);
+  });
+  document.getElementById('contatosCard').addEventListener('dragover', e=> e.preventDefault());
+  document.getElementById('contatosCard').addEventListener('drop', e=>{
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f) handleFileContatos(f);
+  });
+
+  function handleFileContatos(file){
+    const statusEl = document.getElementById('contatosStatus');
+    if (typeof XLSX === 'undefined') {
+      setStatus(statusEl, 'Componente de leitura de planilha não carregou. Recarregue a página.', 'err');
+      return;
+    }
+    setStatus(statusEl, 'Lendo arquivo…', 'busy');
+    const reader = new FileReader();
+    reader.onload = async function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        let linhas = [];
+        wb.SheetNames.forEach(sheetName=>{
+          const ws = wb.Sheets[sheetName];
+          linhas = linhas.concat(XLSX.utils.sheet_to_json(ws, {defval:''}));
+        });
+        await publicarContatos(linhas, file.name, statusEl);
+      }catch(err){
+        setStatus(statusEl, 'Não foi possível ler o arquivo: ' + err.message, 'err');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function publicarContatos(linhas, fileName, statusEl){
+    // extrai só o que precisamos, usando o código como chave de relação
+    // com a planilha comercial de cada vendedor
+    const registros = linhas.map(r=>{
+      const codigo = Number(r.Codigo ?? r.CodCliente ?? r['Código'] ?? '');
+      const responsavelCompleto = (r.Responsavel || '').toString().trim();
+      const responsavelCurto = responsavelCompleto.split(/\s+/)[0] || '';
+      return {
+        codigo: codigo,
+        responsavel: responsavelCurto,
+        prospect: (r.Prospect || '').toString().trim(),
+        celular: (r.Celular || '').toString().trim(),
+        telefone: (r.Telefone || '').toString().trim(),
+        email: (r.Email || '').toString().trim(),
+        cnpj: (r.CNPJ || '').toString().trim()
+      };
+    }).filter(r => r.codigo && !isNaN(r.codigo));
+
+    if (registros.length === 0) {
+      setStatus(statusEl, 'Nenhuma linha com "Codigo" válido foi encontrada. Nada foi importado.', 'err');
+      return;
+    }
+
+    setStatus(statusEl, 'Publicando ' + registros.length + ' contatos…', 'busy');
+
+    // limpa a base de contatos anterior por completo (é uma base única, não por vendedor)
+    const { error: delErr } = await supabaseClient.from('contatos').delete().gt('codigo', -1);
+    if (delErr) { setStatus(statusEl, 'Erro ao limpar base anterior: ' + delErr.message, 'err'); return; }
+
+    const TAM_LOTE = 500;
+    for (let i = 0; i < registros.length; i += TAM_LOTE) {
+      const lote = registros.slice(i, i + TAM_LOTE);
+      const { error: insErr } = await supabaseClient.from('contatos').insert(lote);
+      if (insErr) {
+        setStatus(statusEl, 'Erro ao publicar (lote ' + (i / TAM_LOTE + 1) + '): ' + insErr.message, 'err');
+        return;
+      }
+    }
+
+    document.getElementById('contatosQtd').textContent = registros.length;
+    setStatus(statusEl, '✓ "' + fileName + '" publicado — ' + registros.length + ' contatos atualizados.', 'ok');
+  }
 
   const globalMsg = document.getElementById('globalMsg');
   function setGlobalMsg(text, cls){

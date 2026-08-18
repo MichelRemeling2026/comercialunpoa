@@ -671,7 +671,10 @@
               <button class="clear-link" id="btnClearSpecialFilter">remover</button>
             </div>
           </div>
-          <span class="row-count" id="tableCount"></span>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="btn ghost" id="btnCopyEmails" style="font-size:12px; padding:7px 12px;">✉ Copiar e-mails filtrados</button>
+            <span class="row-count" id="tableCount"></span>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -687,6 +690,7 @@
                 <th><button data-sort="diasSemContato">Dias sem contato <span class="arrow"></span></button></th>
                 <th><button data-sort="diasDesdeVisita">Última visita <span class="arrow"></span></button></th>
                 <th><button data-sort="diasDesdeDemo">Última demo <span class="arrow"></span></button></th>
+                <th>Contato</th>
               </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -799,6 +803,34 @@
   function daysBetween(d1, d2){ return Math.round((d1-d2)/86400000); }
   function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+  function waHref(celular){
+    let digits = (celular||'').replace(/\D/g,'');
+    if(!digits) return null;
+    if(digits.length <= 11) digits = '55' + digits; // assume Brasil se vier sem DDI
+    return 'https://wa.me/' + digits;
+  }
+  function telHref(tel){
+    const digits = (tel||'').replace(/[^\d+]/g,'');
+    return digits ? 'tel:' + digits : null;
+  }
+  function copiarTexto(texto, btnEl){
+    navigator.clipboard.writeText(texto).then(()=>{
+      if(btnEl){ const old = btnEl.textContent; btnEl.textContent = '✓ copiado'; setTimeout(()=> btnEl.textContent = old, 1500); }
+    }).catch(()=>{ alert('Não foi possível copiar automaticamente. Copie manualmente: ' + texto); });
+  }
+
+  function renderContatoCell(r){
+    const wa = waHref(r.Celular);
+    const tel = telHref(r.TelefoneContato || r.Celular);
+    const partes = [];
+    if(wa) partes.push(`<a href="${wa}" target="_blank" rel="noopener" title="Chamar no WhatsApp" style="text-decoration:none;">💬</a>`);
+    if(tel) partes.push(`<a href="${tel}" title="Ligar" style="text-decoration:none;">📞</a>`);
+    if(r.Email){
+      partes.push(`<button class="clear-link btn-copy-email" data-email="${esc(r.Email)}" title="Copiar e-mail" style="font-size:11px;">✉ copiar</button>`);
+    }
+    return partes.length ? partes.join(' ') : '<span style="color:var(--text-faint);">—</span>';
+  }
   function workingDaysInMonth(year, monthIdx){
     const days = new Date(year, monthIdx+1, 0).getDate();
     let count = 0;
@@ -895,6 +927,28 @@
 
     const json = (rows || []).map(r => r.row);
     const contaIds = (rows || []).map(r => r.id);
+
+    // busca a base de contatos (telefone/celular/e-mail), também em lotes,
+    // e monta um mapa por "codigo" pra relacionar com as contas
+    let contatosMap = {};
+    {
+      let contatoRows = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabaseClient
+          .from('contatos')
+          .select('codigo, celular, telefone, email')
+          .range(from, from + PAGE - 1);
+        if (error) break; // se a tabela/permite ainda não existir, segue sem contatos
+        contatoRows = contatoRows.concat(data || []);
+        if (!data || data.length < PAGE) break;
+        from += PAGE;
+      }
+      contatoRows.forEach(c => { contatosMap[c.codigo] = c; });
+    }
+    window.__contatosMap = contatosMap;
+
     if (json.length === 0) {
       document.getElementById('loadingTitle').textContent = 'Nenhuma conta encontrada';
       document.getElementById('loadingMsg').innerHTML =
@@ -962,6 +1016,8 @@
       const diasDesdeVisita = dataVisita ? daysBetween(new Date(), dataVisita) : null;
       const products = PRODUCT_COLS.reduce((acc,c)=>{ acc[c] = (r[c]||'').toString().trim(); return acc; }, {});
       const numProdutosSim = PRODUCT_COLS.reduce((s,c)=> s + (products[c]==='Sim'?1:0), 0);
+      const codigo = Number(r.Codigo ?? r.CodCliente ?? r['Código'] ?? '');
+      const contatoInfo = (window.__contatosMap && !isNaN(codigo)) ? window.__contatosMap[codigo] : null;
       return {
         __rid: __i,
         __contaId: contaIds ? contaIds[__i] : null,
@@ -988,7 +1044,10 @@
         dataVisita: dataVisita,
         diasDesdeVisita: diasDesdeVisita,
         products: products,
-        numProdutosSim: numProdutosSim
+        numProdutosSim: numProdutosSim,
+        Celular: contatoInfo ? (contatoInfo.celular||'').toString().trim() : '',
+        TelefoneContato: contatoInfo ? (contatoInfo.telefone||'').toString().trim() : '',
+        Email: contatoInfo ? (contatoInfo.email||'').toString().trim() : ''
       };
     }).filter(r => r.Prospect !== '(sem nome)' || r.ValorNum > 0 || r.Tipo !== 'Não informado');
 
@@ -1954,8 +2013,14 @@
     document.getElementById('routeOrderedList').innerHTML = rotaFinal.map(p=>{
       const c = p.conta;
       const linkMaps = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng + '&travelmode=driving';
+      const wa = waHref(c.Celular);
+      const tel = telHref(c.TelefoneContato || c.Celular);
+      const contatoLinks = [];
+      if(wa) contatoLinks.push(`<a href="${wa}" target="_blank" rel="noopener" title="WhatsApp" style="text-decoration:none;">💬</a>`);
+      if(tel) contatoLinks.push(`<a href="${tel}" title="Ligar" style="text-decoration:none;">📞</a>`);
+      if(c.Email) contatoLinks.push(`<button class="clear-link btn-copy-email" data-email="${esc(c.Email)}" style="font-size:11px;">✉ copiar e-mail</button>`);
       return `<li>
-        <b>${esc(c.Prospect)}</b> — ${esc(c.Endereco)}
+        <b>${esc(c.Prospect)}</b> — ${esc(c.Endereco)} ${contatoLinks.join(' ')}
         <br>
         <a href="${linkMaps}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--gold); text-decoration:none;">Abrir esta parada no Maps</a>
       </li>`;
@@ -1981,6 +2046,21 @@
     });
   });
 
+  document.getElementById('btnCopyEmails').addEventListener('click', ()=>{
+    const emails = [...new Set(VIEW.map(r=>r.Email).filter(e=> e && e.includes('@')))];
+    const btn = document.getElementById('btnCopyEmails');
+    if(emails.length === 0){
+      alert('Nenhum e-mail encontrado nas contas filtradas atualmente.');
+      return;
+    }
+    copiarTexto(emails.join('; '), btn);
+  });
+
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btn-copy-email');
+    if(btn) copiarTexto(btn.dataset.email, btn);
+  });
+
   function renderTable(){
     const rows = [...VIEW].sort((a,b)=>{
       let va = a[sortState.key], vb = b[sortState.key];
@@ -1991,6 +2071,8 @@
       return 0;
     });
     document.getElementById('tableCount').textContent = fmtInt(rows.length)+' contas';
+    const numEmails = new Set(VIEW.map(r=>r.Email).filter(e=> e && e.includes('@'))).size;
+    document.getElementById('btnCopyEmails').textContent = '✉ Copiar e-mails filtrados (' + numEmails + ')';
     document.querySelectorAll('th .arrow').forEach(a=>a.textContent='');
     const activeBtn = document.querySelector(`th button[data-sort="${sortState.key}"] .arrow`);
     if(activeBtn) activeBtn.textContent = sortState.dir==='asc' ? '↑' : '↓';
@@ -2008,11 +2090,12 @@
         <td class="num">${r.diasSemContato!=null ? r.diasSemContato+'d' : '—'}</td>
         <td class="num">${r.diasDesdeVisita!=null ? r.diasDesdeVisita+'d' : '—'}</td>
         <td class="num">${r.diasDesdeDemo!=null ? r.diasDesdeDemo+'d' : '—'}</td>
+        <td>${renderContatoCell(r)}</td>
       </tr>`;
     }).join('');
-    document.getElementById('tableBody').innerHTML = frag || '<tr><td colspan="10" class="empty-note">Nenhuma conta encontrada com os filtros atuais.</td></tr>';
+    document.getElementById('tableBody').innerHTML = frag || '<tr><td colspan="11" class="empty-note">Nenhuma conta encontrada com os filtros atuais.</td></tr>';
     if(rows.length>500){
-      document.getElementById('tableBody').insertAdjacentHTML('beforeend', `<tr><td colspan="10" class="empty-note">Mostrando as 500 primeiras de ${fmtInt(rows.length)} contas — refine os filtros ou exporte para ver todas.</td></tr>`);
+      document.getElementById('tableBody').insertAdjacentHTML('beforeend', `<tr><td colspan="11" class="empty-note">Mostrando as 500 primeiras de ${fmtInt(rows.length)} contas — refine os filtros ou exporte para ver todas.</td></tr>`);
     }
     document.getElementById('footSummary').textContent = `${fmtInt(RAW.length)} contas na planilha original · ${fmtInt(VIEW.length)} após filtros`;
   }
