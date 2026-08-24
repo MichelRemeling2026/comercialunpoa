@@ -671,16 +671,6 @@
         <div class="desktop-only-section">
         <div class="section-head">
           <div>
-            <h3>Contas a priorizar <span class="n" id="alertN"></span></h3>
-            <p>Maior valor de contrato, sem contato recente — candidatas a uma ligação esta semana.</p>
-          </div>
-        </div>
-        <div class="card">
-          <ul class="alert-list" id="alertList"></ul>
-        </div>
-
-        <div class="section-head">
-          <div>
             <h3>Base completa</h3>
             <p>Clique nos cabeçalhos para ordenar. Use os filtros ao lado para refinar.</p>
             <div id="specialFilterPill" style="display:none; margin-top:8px; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -1834,6 +1824,7 @@
 
   // ---------- Alerts ----------
   function renderAlerts(){
+    if(!document.getElementById('alertList')) return;
     const candidates = VIEW.filter(r=> r.Cliente!=='Ex-Cliente' && r.diasSemContato!=null && r.diasSemContato>60)
       .sort((a,b)=> ((b.diasDesdeVisita||0) - (a.diasDesdeVisita||0)) || (b.ValorNum - a.ValorNum) || (b.diasSemContato - a.diasSemContato))
       .slice(0,15);
