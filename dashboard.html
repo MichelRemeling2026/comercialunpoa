@@ -527,69 +527,6 @@
       <div class="content">
 
         <div class="desktop-only-section">
-        <div class="ledger-strip" id="kpiStrip"></div>
-
-        <div class="section-head">
-          <div>
-            <h3>Simulador de oportunidade</h3>
-            <p>Busque um cliente, prospect ou ex-cliente e veja o valor estimado de uma possível venda, com base na tabela de preços vigente.</p>
-          </div>
-        </div>
-        <div class="card sim-card">
-          <div class="sim-search-row">
-            <input type="search" id="simSearchBox" placeholder="Buscar conta por nome…" autocomplete="off">
-            <div id="simSearchResults" class="sim-search-results" style="display:none;"></div>
-          </div>
-          <div id="simPanel" class="sim-panel" style="display:none;">
-            <div class="sim-panel-head">
-              <div>
-                <div class="sim-account-name" id="simAccountName"></div>
-                <div class="sim-account-meta" id="simAccountMeta"></div>
-              </div>
-              <button type="button" class="clear-link" id="simClear">trocar conta</button>
-            </div>
-
-            <div class="sim-current-box" id="simCurrentBox"></div>
-
-            <div class="sim-row">
-              <div class="sim-field">
-                <span class="fl">Pacote atual (contrato vigente)</span>
-                <select id="simPacoteAtualSelect"></select>
-                <span class="sim-field-hint" id="simPacoteAtualHint"></span>
-              </div>
-            </div>
-
-            <div class="sim-row">
-              <div class="sim-field">
-                <span class="fl">Pacote a simular (o que oferecer)</span>
-                <select id="simPacoteSelect"></select>
-              </div>
-              <div class="sim-field sim-field-narrow">
-                <span class="fl">Nº de usuários</span>
-                <input type="number" id="simUsuariosInput" min="1" step="1">
-              </div>
-            </div>
-
-            <div class="sim-field">
-              <span class="fl">Produtos adicionais a considerar</span>
-              <div class="sim-addons" id="simAddonsList"></div>
-            </div>
-
-            <div class="sim-results">
-              <div class="sim-result-box">
-                <span class="sim-result-label">Potencial total</span>
-                <span class="sim-result-value" id="simTotalPotencial">—</span>
-                <span class="sim-result-sub">pacote + todos os produtos, no nº de usuários informado</span>
-              </div>
-              <div class="sim-result-box highlight">
-                <span class="sim-result-label">Oportunidade (o que falta vender)</span>
-                <span class="sim-result-value" id="simTotalOportunidade">—</span>
-                <span class="sim-result-sub" id="simOportunidadeSub">apenas o que a conta ainda não possui</span>
-              </div>
-            </div>
-            <div class="sim-note" id="simNote"></div>
-          </div>
-        </div>
 
         <div class="section-head">
           <div>
@@ -607,6 +544,8 @@
             <button class="clear-link" id="btnRankMostrarMais" style="display:none;">mostrar mais</button>
           </div>
         </div>
+
+        <div class="ledger-strip" id="kpiStrip"></div>
 
         <div class="section-head">
           <div>
@@ -682,45 +621,6 @@
 
         <div class="section-head">
           <div>
-            <h3>Ritmo de atividade</h3>
-            <p>Última atividade registrada, por mês — mostra se o contato com a carteira está esfriando.</p>
-          </div>
-        </div>
-        <div class="card">
-          <div class="chart-wrap"><canvas id="chartAtividade"></canvas></div>
-        </div>
-
-        <div class="section-head">
-          <div>
-            <h3>Calendário de atividade</h3>
-            <p>Dias com pelo menos um registro de atividade, comparados aos dias úteis disponíveis no mês.</p>
-          </div>
-        </div>
-        <div class="card">
-          <h4>Dias trabalhados por mês (últimos 24 meses)</h4>
-          <div class="chart-wrap"><canvas id="chartDiasTrabalhados"></canvas></div>
-        </div>
-        <div class="grid-2" style="margin-top:18px;">
-          <div class="card">
-            <h4>Calendário do mês</h4>
-            <div class="cal-controls">
-              <select id="calMonthSelect"></select>
-            </div>
-            <div class="cal-grid" id="calGrid"></div>
-          </div>
-          <div class="card">
-            <h4>Resumo do mês</h4>
-            <div class="stat-block" id="calStat"></div>
-            <p class="empty-note" style="padding-top:0;">Considera "dia trabalhado" qualquer dia em que ao menos uma conta teve sua última atividade registrada nessa data, dentro do filtro atual. Fins de semana aparecem esmaecidos e não entram na contagem de dias úteis.</p>
-          </div>
-        </div>
-        <div class="card" id="dayDetailCard" style="margin-top:18px; display:none;">
-          <h4>Contas com atividade em <span id="dayDetailDate"></span></h4>
-          <ul class="alert-list" id="dayDetailList"></ul>
-        </div>
-
-        <div class="section-head">
-          <div>
             <h3>Tempo com o sistema atual (concorrência)</h3>
             <p>Há quanto tempo prospects e ex-clientes usam o sistema concorrente — quem está há mais tempo tende a estar mais aberto à troca.</p>
           </div>
@@ -746,15 +646,6 @@
           </div>
         </div>
 
-        <div class="section-head">
-          <div>
-            <h3>Conversão por coorte de cadastro</h3>
-            <p>De quem entrou na base em cada ano, quantos já viraram cliente.</p>
-          </div>
-        </div>
-        <div class="card">
-          <div class="chart-wrap"><canvas id="chartCoorte"></canvas></div>
-        </div>
         </div><!-- /desktop-only-section -->
 
         <div class="section-head">
@@ -1258,6 +1149,7 @@
   }
 
   function initCalendarControls(){
+    if(!document.getElementById('calMonthSelect')) return;
     selectedCalDate = null;
     const byDate = buildActivityMap(RAW);
     const months = [...new Set(Object.keys(byDate).map(k=>k.slice(0,7)))].sort();
@@ -1275,6 +1167,7 @@
   }
 
   function renderCalendarGrid(){
+    if(!document.getElementById('calMonthSelect')) return;
     const sel = document.getElementById('calMonthSelect');
     const grid = document.getElementById('calGrid');
     const statEl = document.getElementById('calStat');
@@ -1351,6 +1244,7 @@
   }
 
   function renderCalendarChart(){
+    if(!document.getElementById('chartDiasTrabalhados')) return;
     destroyChart('calMensal');
     const byDate = buildActivityMap(VIEW);
     const monthAgg = {};
@@ -1626,9 +1520,12 @@
       {label:'Sem contato 90+ dias', value: fmtInt(semContato), cls:'alert'},
       {label:'Abaixo da tabela (pacote confirmado)', value: fmtBRL(abaixoTotal), cls:'alert', sub: abaixoQtd+' conta(s)'},
     ];
-    document.getElementById('kpiStrip').innerHTML = kpis.map(k=>
-      `<div class="kpi ${k.cls||''}"><span class="label">${k.label}</span><span class="value">${k.value}</span>${k.sub?`<span class="sub">${k.sub}</span>`:''}</div>`
-    ).join('');
+    const kpiStripEl = document.getElementById('kpiStrip');
+    if(kpiStripEl){
+      kpiStripEl.innerHTML = kpis.map(k=>
+        `<div class="kpi ${k.cls||''}"><span class="label">${k.label}</span><span class="value">${k.value}</span>${k.sub?`<span class="sub">${k.sub}</span>`:''}</div>`
+      ).join('');
+    }
     document.getElementById('visaoGeralN').textContent = '('+fmtInt(total)+' contas no filtro atual)';
   }
 
@@ -1720,30 +1617,6 @@
         },
         onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
         scales:{ y:{ min:0, max:100, ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}, callback:v=>v+'%'}, grid:{color:'#2e3841'} }, x:{ ticks:{color:'#eae6da', font:{family:'Inter', size:11}}, grid:{display:false} } }
-      })
-    });
-
-    // atividade por mes (last 24 months with data)
-    destroyChart('atividade');
-    const monthAgg = {};
-    VIEW.forEach(r=>{
-      if(!r.UltimaAtividade) return;
-      const key = r.UltimaAtividade.getFullYear()+'-'+String(r.UltimaAtividade.getMonth()+1).padStart(2,'0');
-      monthAgg[key] = (monthAgg[key]||0)+1;
-    });
-    const monthKeys = Object.keys(monthAgg).sort().slice(-24);
-    charts.atividade = new Chart(document.getElementById('chartAtividade'), {
-      type:'line',
-      data:{ labels:monthKeys, datasets:[{ data:monthKeys.map(k=>monthAgg[k]), borderColor:'#c9a227', backgroundColor:'rgba(201,162,39,0.12)', fill:true, tension:.3, pointRadius:2 }]},
-      options: baseOptions({
-        plugins:{legend:{display:false}},
-        onClick:(evt, elements)=>{
-          if(!elements.length) return;
-          const ym = monthKeys[elements[0].index];
-          applyDrill(r=> r.UltimaAtividade && (r.UltimaAtividade.getFullYear()+'-'+String(r.UltimaAtividade.getMonth()+1).padStart(2,'0'))===ym, 'Última atividade em '+ym, ['Cliente','Prospect','Ex-Cliente']);
-        },
-        onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
-        scales:{ x:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12}, grid:{display:false} }, y:{ ticks:{color:'#9aa5b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#2e3841'} } }
       })
     });
 
@@ -1940,6 +1813,7 @@
     }).join('');
   }
   function renderCoorte(){
+    if(!document.getElementById('chartCoorte')) return;
     destroyChart('coorte');
     const withYear = VIEW.filter(r=>r.anoCadastro);
     const years = [...new Set(withYear.map(r=>r.anoCadastro))].sort();
